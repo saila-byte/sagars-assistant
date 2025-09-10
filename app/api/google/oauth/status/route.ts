@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getTokens } from '@/lib/googleTokens';
+import { getValidTokens } from '@/lib/googleTokens';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
   try {
-    const tokens = await getTokens();
+    const tokens = await getValidTokens();
     
     if (!tokens) {
       return NextResponse.json({
@@ -25,7 +25,7 @@ export async function GET() {
       tokenType: tokens.token_type,
       scope: tokens.scope,
       expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
-      message: isExpired ? 'Token expired - re-authentication needed' : 'Google OAuth connected and active'
+      message: isExpired ? 'Token expired - re-authentication needed' : 'Google OAuth connected and active with auto-refresh'
     });
   } catch (error: any) {
     return NextResponse.json({

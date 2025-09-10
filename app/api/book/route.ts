@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import { getTokens } from '@/lib/googleTokens';
+import { getValidTokens } from '@/lib/googleTokens';
 
 export const runtime = 'nodejs';
 
@@ -19,15 +19,15 @@ export async function POST(req: Request) {
     }
 
     console.log('[book] Checking Google OAuth tokens...');
-    const tokens = await getTokens();
+    const tokens = await getValidTokens();
     if (!tokens) {
-      console.error('[book] No Google OAuth tokens found');
+      console.error('[book] No valid Google OAuth tokens found');
       return NextResponse.json(
         { error: 'Google not connected. Visit /api/google/oauth/start first.' },
         { status: 401 }
       );
     }
-    console.log('[book] Google OAuth tokens found');
+    console.log('[book] Valid Google OAuth tokens found');
 
     const clientId = process.env.GOOGLE_CLIENT_ID!;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
