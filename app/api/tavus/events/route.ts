@@ -6,26 +6,49 @@ export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
-    console.log('[tavus.events] === CALLBACK RECEIVED ===');
+    console.log('🔔 [TAVUS.EVENTS] ===== CALLBACK RECEIVED =====');
+    console.log('[tavus.events] Timestamp:', new Date().toISOString());
+    const host = req.headers.get('host') || 'localhost:3000';
+    const protocol = req.headers.get('x-forwarded-proto') || 'https';
+    const fullUrl = `${protocol}://${host}${req.url}`;
+    console.log('[tavus.events] URL:', fullUrl);
+    console.log('[tavus.events] Method:', req.method);
     
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch((e) => {
+      console.error('[tavus.events] Failed to parse JSON:', e);
+      return {};
+    });
     console.log('[tavus.events] Full callback body:', JSON.stringify(body, null, 2));
+    console.log('[tavus.events] Body type:', typeof body);
+    console.log('[tavus.events] Body keys:', Object.keys(body || {}));
     
     // Log headers for debugging
     const headers = Object.fromEntries(req.headers.entries());
     console.log('[tavus.events] Headers:', headers);
+    console.log('[tavus.events] Content-Type:', req.headers.get('content-type'));
+    console.log('[tavus.events] User-Agent:', req.headers.get('user-agent'));
     
     // Check if this is a tool call
     const isToolCall = 
       body.type === 'conversation.tool_call' ||
       body.event_type === 'conversation.tool_call' ||
       body.tool_call ||
-      body.tool;
+      body.tool ||
+      body.name === 'update_calendar' ||
+      body.name === 'end_call';
     
+    console.log('🔔 [TAVUS.EVENTS] ===== TOOL CALL CHECK =====');
     console.log('[tavus.events] Is tool call?', isToolCall);
+    console.log('[tavus.events] Check details:', {
+      'body.type': body.type,
+      'body.event_type': body.event_type,
+      'body.tool_call': !!body.tool_call,
+      'body.tool': !!body.tool,
+      'body.name': body.name
+    });
     
     if (isToolCall) {
-      console.log('[tavus.events] TOOL CALL DETECTED!');
+      console.log('🔧 [TAVUS.EVENTS] ===== TOOL CALL DETECTED =====');
       console.log('[tavus.events] Tool call details:', {
         type: body.type,
         event_type: body.event_type,
@@ -40,13 +63,24 @@ export async function POST(req: Request) {
       // If this is an update_calendar tool call, forward to booking API
       
       const toolName = body.tool?.name || body.name;
+      console.log('🔧 [TAVUS.EVENTS] ===== TOOL NAME EXTRACTION =====');
+      console.log('[tavus.events] Tool name:', toolName);
+      console.log('[tavus.events] From body.tool?.name:', body.tool?.name);
+      console.log('[tavus.events] From body.name:', body.name);
+      
       if (toolName === 'update_calendar') {
         const args = body.tool?.arguments || body.arguments || body.parameters || {};
+        console.log('🔧 [TAVUS.EVENTS] ===== UPDATE_CALENDAR TOOL CALL =====');
         console.log('[tavus.events] Processing update_calendar tool call with args:', args);
+        console.log('[tavus.events] Args type:', typeof args);
+        console.log('[tavus.events] Args stringified:', JSON.stringify(args, null, 2));
         
         // Forward the tool call to the booking API
         try {
-          const bookingResponse = await fetch(`${new URL(req.url).origin}/api/tavus/intent`, {
+          const host = req.headers.get('host') || 'localhost:3000';
+          const protocol = req.headers.get('x-forwarded-proto') || 'https';
+          const baseUrl = `${protocol}://${host}`;
+          const bookingResponse = await fetch(`${baseUrl}/api/tavus/intent`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -78,6 +112,17 @@ export async function POST(req: Request) {
             error: error.message
           });
         }
+      } else if (toolName === 'end_call') {
+        const args = body.tool?.arguments || body.arguments || body.parameters || {};
+        console.log('[tavus.events] Processing end_call tool call with args:', args);
+        
+        // Handle call ending
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Call ended successfully',
+          tool_call_id: body.tool_call_id || body.tool?.tool_call_id,
+          reason: args.reason || 'user_completed_task'
+        });
       }
       
       // For other tool calls, just log and return success

@@ -5,7 +5,7 @@ import * as chrono from 'chrono-node';
 type BookPayload = {
   intent: 'BOOK_MEETING';
   email: string;            // invitee email
-  duration: 15 | 30;        // minutes
+  duration: 30;             // minutes (only 30-minute meetings)
   datetimeText: string;     // e.g., "tomorrow at 9am"
   timezone?: string;        // IANA TZ, default America/Los_Angeles
   confirm?: boolean;        // if true, book immediately
@@ -56,7 +56,9 @@ export async function POST(req: Request) {
     });
 
     // 2) Pull availability for this duration
-    const origin = new URL(req.url).origin;
+    const host = req.headers.get('host') || 'localhost:3000';
+    const protocol = req.headers.get('x-forwarded-proto') || 'https';
+    const origin = `${protocol}://${host}`;
     const availabilityUrl = `${origin}/api/calendly/availability?duration=${duration}&timezone=${encodeURIComponent(tz)}`;
     console.log('[intent] Fetching availability from:', availabilityUrl);
     

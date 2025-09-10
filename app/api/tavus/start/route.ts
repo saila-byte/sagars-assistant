@@ -7,6 +7,44 @@ type StartBody = {
   timezone?: string;    // kept for later use
 };
 
+// Helper function to fetch calendar availability
+async function fetchAvailability(timezone: string): Promise<string> {
+  try {
+    const origin = process.env.NODE_ENV === 'production'
+      ? 'https://your-domain.com'
+      : 'https://sagar-assistant.loca.lt';
+    
+    const response = await fetch(`${origin}/api/calendly/availability?duration=30&timezone=${encodeURIComponent(timezone)}`);
+    
+    if (!response.ok) {
+      console.log('[tavus.start] Availability fetch failed:', response.status);
+      return 'No availability data available';
+    }
+    
+    const data = await response.json();
+    
+    if (data.slots && data.slots.length > 0) {
+      const slots = data.slots.slice(0, 5); // Get first 5 slots
+      const slotText = slots.map((slot: any) => 
+        `${new Date(slot.start_time).toLocaleString('en-US', { 
+          weekday: 'short', 
+          month: 'short', 
+          day: 'numeric', 
+          hour: 'numeric', 
+          minute: '2-digit',
+          timeZone: timezone 
+        })}`
+      ).join(', ');
+      return `Available slots: ${slotText}`;
+    }
+    
+    return 'No available slots found';
+  } catch (error) {
+    console.log('[tavus.start] Availability fetch error:', error);
+    return 'Unable to fetch availability';
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // read body (not required for the minimal call)
@@ -42,20 +80,66 @@ export async function POST(req: Request) {
       );
     }
 
+    // --- Fetch availability and build context ---
+    const availability = await fetchAvailability(_timezone);
+    
     // --- Minimal payload to isolate auth/IDs (matches your working curl shape) ---
-    const origin = new URL(req.url).origin;
+    const origin = process.env.NODE_ENV === 'production' 
+      ? 'https://your-domain.com' 
+      : 'https://sagar-assistant.loca.lt';
     const payload = {
       persona_id: personaId,
       replica_id: replicaId,
       // Pass user context directly to Tavus conversation
-      conversational_context: `IMPORTANT: All meetings are exactly 30 minutes in duration. The user's email address is ${_email}. Their timezone is ${_timezone}. When booking meetings, always use this email address: ${_email}. Do not ask the user for their email address as it's already provided. Never mention 20-minute meetings - only 30-minute meetings are available.`,
-      callback_url: `${origin}/api/tavus/events`, // Enable callback for tool calls
+      conversational_context: `You are Sagar's calendar booking assistant. 
+
+CRITICAL: You MUST use tool calls to book meetings and end calls.
+
+When a user wants to book a meeting, use this tool call:
+{
+  "type": "conversation.tool_call",
+  "tool_call_id": "tool_call_" + timestamp,
+  "tool": {
+    "name": "update_calendar",
+    "arguments": {
+      "email": "${_email}",
+      "duration": 30,
+      "datetimeText": "the time they requested",
+      "timezone": "${_timezone}",
+      "title": "Meeting with Sagar",
+      "notes": "Booked via Tavus assistant"
+    }
+  }
+}
+
+When the user is done, use this tool call:
+{
+  "type": "conversation.tool_call", 
+  "tool_call_id": "tool_call_" + timestamp,
+  "tool": {
+    "name": "end_call",
+    "arguments": {
+      "reason": "user_completed_task"
+    }
+  }
+}
+
+User's email: ${_email}. Timezone: ${_timezone}. All meetings are 30 minutes. ${availability}`,
+      callback_url: `${origin}/api/tavus/events`, // Keep callback for system events
     };
 
     // Email is passed via conversational_context - no need for callback context storage
 
+    console.log('🚀 [TAVUS.START] ===== SENDING TO TAVUS =====');
     console.log('[tavus.start] POST', conversationsURL);
-    console.log('[tavus.start] Payload:', payload);
+    console.log('[tavus.start] Payload length:', JSON.stringify(payload).length);
+    console.log('[tavus.start] Payload preview:', {
+      persona_id: payload.persona_id,
+      replica_id: payload.replica_id,
+      callback_url: payload.callback_url,
+      conversational_context_length: payload.conversational_context?.length
+    });
+    console.log('[tavus.start] Full payload:', JSON.stringify(payload, null, 2));
     const r = await fetch(conversationsURL, {
       method: 'POST',
       headers: {
@@ -67,7 +151,14 @@ export async function POST(req: Request) {
     });
 
     const text = await r.text().catch(() => '');
+    console.log('🚀 [TAVUS.START] ===== TAVUS RESPONSE =====');
+    console.log('[tavus.start] Response status:', r.status);
+    console.log('[tavus.start] Response headers:', Object.fromEntries(r.headers.entries()));
+    console.log('[tavus.start] Response text length:', text.length);
+    console.log('[tavus.start] Response text preview:', text.substring(0, 500));
+    
     if (!r.ok) {
+      console.error('❌ [TAVUS.START] ===== TAVUS ERROR =====');
       console.error('[tavus.start] Tavus error', r.status, safeTrim(text));
       return NextResponse.json(
         { error: 'Tavus conversation create failed', status: r.status, detail: safeTrim(text) },
@@ -78,14 +169,17 @@ export async function POST(req: Request) {
     let data: any = {};
     try {
       data = JSON.parse(text);
-    } catch {
-      // ignore
+      console.log('[tavus.start] Parsed response data:', data);
+    } catch (e) {
+      console.error('[tavus.start] Failed to parse JSON response:', e);
+      console.log('[tavus.start] Raw text:', text);
     }
 
     const conversationUrl: string | undefined =
       data?.conversation_url || data?.conversationUrl;
 
     if (!conversationUrl) {
+      console.error('❌ [TAVUS.START] ===== MISSING CONVERSATION URL =====');
       console.error('[tavus.start] Missing conversation_url in response', data);
       return NextResponse.json(
         { error: 'No conversation_url returned from Tavus', raw: data },
@@ -93,7 +187,8 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log('[tavus.start] OK conversation_url present');
+    console.log('✅ [TAVUS.START] ===== SUCCESS =====');
+    console.log('[tavus.start] OK conversation_url present:', conversationUrl);
     return NextResponse.json({ conversationUrl }, { status: 200 });
   } catch (err: any) {
     console.error('[tavus.start] unexpected', err);
