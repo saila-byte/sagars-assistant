@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     // read body (not required for the minimal call)
     const body = (await req.json().catch(() => ({}))) as StartBody;
     const _email = (body?.email ?? '').toString().trim();
-    const _duration = Number.isFinite(Number(body?.duration)) ? Number(body!.duration) : 15;
+    const _duration = 30; // Only 30-minute meetings
     const _timezone =
       typeof body?.timezone === 'string' && body.timezone ? body.timezone : 'America/Los_Angeles';
 
@@ -43,16 +43,19 @@ export async function POST(req: Request) {
     }
 
     // --- Minimal payload to isolate auth/IDs (matches your working curl shape) ---
+    const origin = new URL(req.url).origin;
     const payload = {
       persona_id: personaId,
       replica_id: replicaId,
-      // can pass this context too at some point :
-      // metadata: { email: _email, duration: _duration, timezone: _timezone },
-      // variables: { session_email: _email, session_duration: _duration, session_timezone: _timezone },
-      // callback_url: `${origin}/api/tavus/events`, // if you add a listener
+      // Pass user context directly to Tavus conversation
+      conversational_context: `IMPORTANT: All meetings are exactly 30 minutes in duration. The user's email address is ${_email}. Their timezone is ${_timezone}. When booking meetings, always use this email address: ${_email}. Do not ask the user for their email address as it's already provided. Never mention 20-minute meetings - only 30-minute meetings are available.`,
+      callback_url: `${origin}/api/tavus/events`, // Enable callback for tool calls
     };
 
+    // Email is passed via conversational_context - no need for callback context storage
+
     console.log('[tavus.start] POST', conversationsURL);
+    console.log('[tavus.start] Payload:', payload);
     const r = await fetch(conversationsURL, {
       method: 'POST',
       headers: {

@@ -6,13 +6,10 @@ const isoZ = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, '.000000Z');
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const duration = Number(searchParams.get('duration') || '15');
+  const duration = 30; // Only 30-minute meetings
   const timezone = searchParams.get('timezone') || 'America/Los_Angeles';
 
-  const eventType =
-    duration === 30
-      ? process.env.CALENDLY_EVENT_TYPE_30_URI
-      : process.env.CALENDLY_EVENT_TYPE_15_URI;
+  const eventType = process.env.CALENDLY_EVENT_TYPE_30_URI; // Only 30-minute event type
 
   if (!process.env.CALENDLY_TOKEN || !eventType) {
     return NextResponse.json(
