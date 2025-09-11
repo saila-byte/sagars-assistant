@@ -70,7 +70,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to fetch availability' }, { status: 502 });
     }
     const avail = await availRes.json();
-    console.log('[intent] Availability data:', avail);
     
     const slots: Slot[] = Array.isArray(avail?.slots) ? avail.slots : [];
     console.log('[intent] Available slots count:', slots.length);
@@ -157,8 +156,6 @@ export async function POST(req: Request) {
             return NextResponse.json({
               ok: true,
               booked_start_time: next.start_time,
-              htmlLink: retryData.htmlLink,
-              hangoutLink: retryData.hangoutLink,
             });
           }
         }
@@ -170,8 +167,6 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       booked_start_time: chosen.start_time,
-      htmlLink: data.htmlLink,
-      hangoutLink: data.hangoutLink,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Unknown error' }, { status: 500 });
