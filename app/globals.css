@@ -12,14 +12,22 @@
 
 :root {
   --terminal-bg: rgba(255, 255, 255, 0.9);
-  --terminal-green: #4299e1;
-  --terminal-green-dim: #3182ce;
-  --terminal-green-bright: #63b3ed;
+  --terminal-green: #FF6810;
+  --terminal-green-dim: #e55a0e;
+  --terminal-green-bright: #ff7a2a;
   --terminal-text: #2d3748;
-  --terminal-border: #e2e8f0;
-  --terminal-accent: #d53f8c;
-  --terminal-warning: #dd6b20;
+  --terminal-border: #FF6183;
+  --terminal-accent: #DE67E3;
+  --terminal-warning: #FF6810;
   --terminal-error: #e53e3e;
+  --brand-orange: #FF6810;
+  --brand-pink: #FF6183;
+  --brand-purple: #DE67E3;
+  
+  /* Design system colors */
+  --color-scheme-1-border: #140206;
+  --radius-medium: 8px;
+  --stroke-border-width: 1.34px;
 }
 
 @theme inline {
@@ -44,7 +52,7 @@ body {
   position: relative;
 }
 
-/* Removed overlay to show background image clearly */
+/* Removed purple overlay to show background image clearly */
 
 /* Retro terminal effects */
 .terminal-glow {
@@ -110,6 +118,32 @@ body {
   color: var(--terminal-error);
 }
 
+.brand-orange {
+  color: var(--brand-orange);
+}
+
+.brand-pink {
+  color: var(--brand-pink);
+}
+
+.brand-purple {
+  color: var(--brand-purple);
+}
+
+/* Video and availability box styling */
+.content-container {
+  gap: 32px;
+  opacity: 1;
+  border-radius: var(--radius-medium);
+  border-width: var(--stroke-border-width);
+  padding: 32px;
+  background: #FF9EB2;
+  border-top: 1.34px solid var(--color-scheme-1-border);
+  box-shadow: 6px 6px 0px 0px var(--color-scheme-1-border);
+  display: flex;
+  flex-direction: column;
+}
+
 /* Scanline effect */
 .terminal-scanlines::before {
   content: '';
@@ -120,7 +154,7 @@ body {
   height: 100%;
   background: linear-gradient(
     transparent 50%,
-    rgba(66, 153, 225, 0.02) 50%
+    rgba(255, 104, 16, 0.02) 50%
   );
   background-size: 100% 4px;
   pointer-events: none;
