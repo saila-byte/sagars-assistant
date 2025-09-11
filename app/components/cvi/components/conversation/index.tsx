@@ -109,15 +109,6 @@ export const Conversation = React.memo(({ onLeave, conversationUrl }: Conversati
 
 	// Initialize call when conversation is available
 	useEffect(() => {
-		console.log('🎥 [CONVERSATION] Starting conversation with URL:', conversationUrl);
-		console.log('🎥 [CONVERSATION] URL validation:', {
-			exists: !!conversationUrl,
-			type: typeof conversationUrl,
-			length: conversationUrl?.length,
-			startsWith: conversationUrl?.startsWith('https://'),
-			containsDaily: conversationUrl?.includes('daily.co')
-		});
-		
 		// Add a small delay to ensure Daily object is ready
 		const timer = setTimeout(() => {
 			joinCall({ url: conversationUrl });
