@@ -109,7 +109,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ 
             success: false, 
             message: 'Error processing booking',
-            error: error.message
+            error: error instanceof Error ? error.message : String(error)
           });
         }
       } else if (toolName === 'end_call') {

@@ -11,6 +11,7 @@ export const useCVICall = (): {
 
 	const joinCall = useCallback(
 		({ url }: { url: string }) => {
+
 			if (!url || typeof url !== 'string') {
 				return;
 			}
@@ -29,7 +30,7 @@ export const useCVICall = (): {
 					},
 				},
 			}).catch((error) => {
-				console.error('Join failed:', error);
+
 			});
 		},
 		[daily]
