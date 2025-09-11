@@ -37,7 +37,7 @@ export async function GET() {
         primary: cal.primary,
         accessRole: cal.accessRole
       })),
-      currentCalendarId: process.env.SAGAR_CALENDAR_ID || 'primary'
+      currentCalendarId: process.env.HASSAAN_CALENDAR_ID || 'primary'
     });
   } catch (error: any) {
     return NextResponse.json({ 

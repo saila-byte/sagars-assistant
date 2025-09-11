@@ -192,7 +192,7 @@ export default function Page() {
             datetimeText: datetimeText,
             timezone: toolTimezone,
             confirm: true,
-            title: args.title || 'Meeting with Sagar',
+            title: args.title || 'Meeting with Hassaan',
             notes: args.notes || 'Booked via Tavus assistant'
           })
         });
@@ -209,7 +209,7 @@ export default function Page() {
         
         // Extract attendee name from email (everything before @)
         const attendeeName = inviteeEmail.split('@')[0];
-        const meetingName = args.title || 'Meeting with Sagar';
+        const meetingName = args.title || 'Meeting with Hassaan';
         
         // Format the time for the echo message
         const startTime = new Date(bookingData.booked_start_time);
@@ -274,6 +274,8 @@ export default function Page() {
     }
     localStorage.setItem('booking_last_email', email);
     setStep('haircheck');
+    // Immediately request camera access when continuing
+    requestAV();
   }
 
   const requestAV = useCallback(async () => {
@@ -423,6 +425,7 @@ export default function Page() {
     duration?: number;
     title?: string;
     notes?: string;
+    timezone?: string;
   }) {
     const start_time = args?.start_time ?? selectedSlot?.start_time;
     if (!start_time) {
@@ -433,8 +436,9 @@ export default function Page() {
       email: (args?.email || email).trim(),
       start_time,
       duration: args?.duration ?? duration,
-      title: args?.title || 'Intro with Sagar',
+      title: args?.title || 'Intro with Hassaan',
       notes: args?.notes || 'Booked via Tavus assistant',
+      timezone: args?.timezone || timezone,
     };
 
     try {
@@ -535,6 +539,7 @@ export default function Page() {
             duration: reqDuration,
             title: args.title,
             notes: args.notes,
+            timezone: toolTimezone,
           });
           sendToolResultToTavus(conversationUrl, id, { ok: true, start_time: whenISO });
           return;
@@ -549,7 +554,7 @@ export default function Page() {
           timezone: toolTimezone,
             confirm: true,
             notes: args.notes,
-            title: args.title || 'Intro with Sagar'
+            title: args.title || 'Intro with Hassaan'
         };
         
         
@@ -645,7 +650,7 @@ export default function Page() {
               datetimeText: datetimeText,
               timezone: toolTimezone,
               confirm: true,
-              title: args.title || 'Meeting with Sagar',
+              title: args.title || 'Meeting with Hassaan',
               notes: args.notes || 'Booked via Tavus assistant'
             })
           });
@@ -728,9 +733,9 @@ export default function Page() {
       {step === 'landing' && (
         <div className="max-w-3xl mx-auto px-6 py-12">
           <div className="mb-8">
-            <h1 className="text-3xl tracking-tight mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Sagar</h1>
-            <p className="max-w-prose" style={{ color: 'black' }}>
-              I'm Sagar's assistant. I can schedule a 30-minute meeting for you.
+            <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Hassaan</h2>
+            <p className="text-sm terminal-text">
+              I'm Hassaan's assistant. I can schedule a 30-minute meeting for you.
               Tell me your email below to get started.
             </p>
           </div>
@@ -775,7 +780,7 @@ export default function Page() {
                   onClick={handleStart}
                   className="w-full mt-2 terminal-button px-4 py-3"
                 >
-                  Continue → Haircheck
+                  Continue
                 </button>
               </div>
             </div>
@@ -804,15 +809,16 @@ export default function Page() {
       {step === 'haircheck' && (
         <div className="max-w-5xl mx-auto px-6 py-10">
           <div className="mb-6 flex items-center justify-between">
-            <div><h2 className="text-2xl" style={{ color: 'black' }}>Meet Sagar's AI Assistant</h2>
+            <div>
+              <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Meet Hassaan's AI Assistant</h2>
               <p className="text-sm terminal-text">
                 {!mediaStream 
                   ? 'Initializing camera & microphone...' 
                   : conversationPreparing 
                     ? 'Camera & microphone ready. Preparing conversation...' 
                     : conversationUrl 
-                      ? 'Ready! Click "Join Assistant Call" to book a 30-minute meeting with Sagar.'
-                      : 'Camera & microphone ready. You can join the assistant call to book a 30-minute meeting with Sagar.'
+                      ? 'Ready! Click "Join Call" to book a 30-minute meeting with Hassaan.'
+                      : 'Camera & microphone ready. You can join the assistant call to book a 30-minute meeting with Hassaan.'
                 }
               </p>
             </div>
@@ -843,7 +849,6 @@ export default function Page() {
                   </div>
                 ) : (
                   <>
-                    <button onClick={leaveAV} className="terminal-button px-4 py-2 text-sm">Turn Off</button>
                     <button 
                       onClick={goToCall} 
                       disabled={conversationPreparing}
@@ -855,9 +860,9 @@ export default function Page() {
                           Preparing...
                         </div>
                       ) : conversationUrl ? (
-                        'Join Assistant Call'
+                        'Join Call'
                       ) : (
-                        'Join Assistant Call'
+                        'Join Call'
                       )}
                     </button>
                   </>
@@ -882,21 +887,24 @@ export default function Page() {
       )}
 
       {step === 'call' && (
-        <div className="max-w-6xl mx-auto px-6 py-10 content-container">
+        <div className="max-w-5xl mx-auto px-6 py-10">
           <div className="mb-6 flex items-center justify-between">
-            <div><h2 className="text-2xl" style={{ color: 'black' }}>Scheduling Call</h2></div>
+            <div>
+              <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Scheduling Call</h2>
+              <p className="text-sm terminal-text">Book your meeting with Hassaan's AI assistant</p>
+            </div>
             <button onClick={() => setStep('haircheck')} className="text-sm underline terminal-text">← Back</button>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8 items-start">
+          <div className="grid md:grid-cols-3 gap-8 items-start">
             {/* Left: Tavus */}
-            <div className="lg:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
+            <div className="md:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)', boxShadow: '6px 6px 0px 0px var(--color-scheme-1-border)' }}>
               {conversationUrl ? (
-                <div className="aspect-video rounded-xl overflow-hidden content-container">
+                <div className="aspect-video terminal-border rounded overflow-hidden" style={{ background: 'var(--terminal-bg)' }}>
                   <Conversation conversationUrl={conversationUrl} onLeave={() => setStep('landing')} />
                 </div>
               ) : (
-                <div className="aspect-video rounded-xl overflow-hidden bg-black/5 flex items-center justify-center">
+                <div className="aspect-video terminal-border rounded overflow-hidden bg-black/5 flex items-center justify-center" style={{ background: 'var(--terminal-bg)' }}>
                   <div className="text-center">
                     <div className="text-6xl mb-3">🎥</div>
                     <div>Loading assistant…</div>
@@ -929,7 +937,7 @@ export default function Page() {
           <div className="text-7xl mb-4">✅</div>
           <h2 className="text-2xl mb-2" style={{ color: 'black' }}>You're all set!</h2>
           <p className="terminal-text">
-            We've scheduled your {duration}-minute meeting with Sagar. A confirmation
+            We've scheduled your {duration}-minute meeting with Hassaan. A confirmation
             email will arrive at <span className="terminal-accent">{email}</span>.
           </p>
           {bookingInfo?.htmlLink && (

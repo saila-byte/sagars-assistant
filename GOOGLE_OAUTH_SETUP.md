@@ -1,6 +1,6 @@
 # Google OAuth Setup Guide
 
-This guide will help you set up Google OAuth authentication for the Sagar's Assistant calendar booking app.
+This guide will help you set up Google OAuth authentication for the Hassaan's Assistant calendar booking app.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ This guide will help you set up Google OAuth authentication for the Sagar's Assi
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Click "Select a project" → "New Project"
-3. Enter project name: `sagar-assistant` (or any name you prefer)
+3. Enter project name: `hassaan-assistant` (or any name you prefer)
 4. Click "Create"
 
 ## Step 2: Enable Google Calendar API
@@ -28,7 +28,7 @@ This guide will help you set up Google OAuth authentication for the Sagar's Assi
 3. If prompted, configure the OAuth consent screen:
    - Choose "External" user type
    - Fill in required fields:
-     - App name: `Sagar's Assistant`
+     - App name: `Hassaan's Assistant`
      - User support email: your email
      - Developer contact: your email
    - Add scopes: `https://www.googleapis.com/auth/calendar`
@@ -51,7 +51,7 @@ GOOGLE_CLIENT_SECRET=your_client_secret_here
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/oauth/callback
 
 # Calendar ID (use 'primary' for your main calendar)
-SAGAR_CALENDAR_ID=primary
+HASSAAN_CALENDAR_ID=primary
 
 # Tavus API (get from Tavus platform)
 TAVUS_API_KEY=your_tavus_api_key
