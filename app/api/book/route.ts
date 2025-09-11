@@ -10,8 +10,8 @@ export async function POST(req: Request) {
   try {
     console.log('[book] === CALENDAR BOOKING START ===');
     
-    const { email, start_time, duration = 30, title = 'Meeting with Sagar', notes = '' } = await req.json();
-    console.log('[book] Request parameters:', { email, start_time, duration, title, notes });
+    const { email, start_time, duration = 30, title = 'Meeting with Hassaan', notes = '', timezone = 'America/Los_Angeles' } = await req.json();
+    console.log('[book] Request parameters:', { email, start_time, duration, title, notes, timezone });
 
     if (!email || !start_time) {
       console.error('[book] Missing required parameters:', { email, start_time });
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     const clientId = process.env.GOOGLE_CLIENT_ID!;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI!;
-    const calendarId = process.env.SAGAR_CALENDAR_ID || 'primary';
+    const calendarId = process.env.HASSAAN_CALENDAR_ID || 'primary';
 
     console.log('[book] Environment variables:', { 
       hasClientId: !!clientId, 
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       requestBody: {
         timeMin: start.toISOString(),
         timeMax: end.toISOString(),
-        timeZone: 'America/Los_Angeles',
+        timeZone: timezone,
         items: [{ id: calendarId }],
       },
     });
@@ -79,8 +79,8 @@ export async function POST(req: Request) {
     const eventData = {
       summary: title,
       description: notes,
-      start: { dateTime: start.toISOString(), timeZone: 'America/Los_Angeles' },
-      end: { dateTime: end.toISOString(), timeZone: 'America/Los_Angeles' },
+      start: { dateTime: start.toISOString(), timeZone: timezone },
+      end: { dateTime: end.toISOString(), timeZone: timezone },
       attendees: [{ email }],
       conferenceData: {
         createRequest: {

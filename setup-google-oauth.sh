@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔐 Google OAuth Setup for Sagar's Assistant"
+echo "🔐 Google OAuth Setup for Hassaan's Assistant"
 echo "=========================================="
 echo ""
 

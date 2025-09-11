@@ -6,7 +6,7 @@
 # Configuration
 BASE_URL="http://localhost:3000"
 EMAIL="test@example.com"
-TITLE="Test Meeting with Sagar"
+TITLE="Test Meeting with Hassaan"
 NOTES="Test meeting created via API"
 DURATION=15
 START_TIME="2024-01-15T10:00:00-08:00"  # ISO format with timezone

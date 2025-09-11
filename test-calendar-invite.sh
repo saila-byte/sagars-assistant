@@ -12,7 +12,7 @@ ACCESS_TOKEN="your_access_token"  # Get this from your OAuth flow
 
 # Meeting details
 EMAIL="test@example.com"
-TITLE="Test Meeting with Sagar"
+TITLE="Test Meeting with Hassaan"
 NOTES="Test meeting created via bash script"
 DURATION=15  # minutes
 START_TIME="2024-01-15T10:00:00-08:00"  # ISO format with timezone

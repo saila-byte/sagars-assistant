@@ -111,7 +111,7 @@ export async function POST(req: Request) {
       email,
       start_time: chosen.start_time,
       duration,
-      title: 'Meeting with Sagar',
+      title: 'Meeting with Hassaan',
       notes: `Booked via Tavus assistant (request: "${datetimeText}" in ${tz})`,
     };
     
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
               email,
               start_time: next.start_time,
               duration,
-              title: 'Meeting with Sagar',
+              title: 'Meeting with Hassaan',
               notes: `Auto-picked next slot after conflict. Original: "${datetimeText}" in ${tz}`,
             }),
           });

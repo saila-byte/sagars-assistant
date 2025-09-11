@@ -1,6 +1,6 @@
-# Sagar's Assistant - AI Calendar Booking App
+# Hassaan's Assistant - AI Calendar Booking App
 
-An AI-powered calendar booking assistant built with Next.js, Tavus AI, and Google Calendar API. Users can book 30-minute meetings with Sagar through a conversational AI avatar.
+An AI-powered calendar booking assistant built with Next.js, Tavus AI, and Google Calendar API. Users can book 30-minute meetings with Hassaan through a conversational AI avatar.
 
 ## Features
 
@@ -17,7 +17,7 @@ An AI-powered calendar booking assistant built with Next.js, Tavus AI, and Googl
 
 ```bash
 git clone <your-repo-url>
-cd sagars-assistant
+cd hassaans-assistant
 npm install
 ```
 
@@ -30,7 +30,7 @@ Create `.env.local` with your API keys:
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/google/oauth/callback
-SAGAR_CALENDAR_ID=primary
+HASSAAN_CALENDAR_ID=primary
 
 # Tavus AI (required)
 TAVUS_API_KEY=your_tavus_api_key

@@ -12,7 +12,7 @@ async function fetchAvailability(timezone: string): Promise<string> {
   try {
     const origin = process.env.NODE_ENV === 'production'
       ? 'https://your-domain.com'
-      : 'https://sagar-assistant.loca.lt';
+      : 'https://hassaan-assistant.loca.lt';
     
     const response = await fetch(`${origin}/api/calendly/availability?duration=30&timezone=${encodeURIComponent(timezone)}`);
     
@@ -91,12 +91,13 @@ export async function POST(req: Request) {
     // --- Minimal payload to isolate auth/IDs (matches your working curl shape) ---
     const origin = process.env.NODE_ENV === 'production' 
       ? 'https://your-domain.com' 
-      : 'https://sagar-assistant.loca.lt';
+      : 'https://hassaan-assistant.loca.lt';
     const payload = {
       persona_id: personaId,
       replica_id: replicaId,
+      custom_greeting: "Hi, I'm AI Hudson, Hassaan's assistant. How can I help you today? I can answer questions about Hassaan and help you book a 30-minute meeting with him.",
       // Pass user context directly to Tavus conversation
-      conversational_context: `You are Sagar's calendar booking assistant. 
+      conversational_context: `You are Hassaan's calendar booking assistant. 
 
 CRITICAL: You MUST use tool calls to book meetings and end calls.
 
@@ -111,7 +112,7 @@ When a user wants to book a meeting, use this tool call:
       "duration": 30,
       "datetimeText": "the time they requested",
       "timezone": "${_timezone}",
-      "title": "Meeting with Sagar",
+      "title": "Meeting with Hassaan",
       "notes": "Booked via Tavus assistant"
     }
   }

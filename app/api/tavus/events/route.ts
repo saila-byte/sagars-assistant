@@ -90,7 +90,7 @@ export async function POST(req: Request) {
               datetimeText: args.datetimeText || args.when,
               timezone: args.timezone,
               confirm: true,
-              title: args.title || 'Meeting with Sagar',
+              title: args.title || 'Meeting with Hassaan',
               notes: args.notes || 'Booked via Tavus assistant'
             })
           });
