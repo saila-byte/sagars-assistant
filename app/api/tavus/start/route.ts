@@ -43,7 +43,7 @@ async function fetchUserEvents(userEmail: string): Promise<string> {
       event.attendees?.some(attendee => 
         attendee.email === userEmail && attendee.responseStatus !== 'declined'
       ) &&
-      event.description?.includes('Booked via Hassaan\'s assistant')
+      event.description?.includes('Booked via Hassaan\'s assistant') || event.description?.includes('Booked via Tavus assistant')
     ) || [];
 
     if (userMeetings.length === 0) {
@@ -153,7 +153,6 @@ export async function POST(req: Request) {
       );
     }
 
-
     // --- Fetch availability and user events ---
 
     // --- Use provided slots or fetch availability as fallback ---
@@ -208,40 +207,11 @@ export async function POST(req: Request) {
       conversational_context: `You are Hassaan's calendar booking assistant. 
 
 
-When the user wants to reschedule an existing meeting, use this tool call:
-{
-  "type": "conversation.tool_call",
-  "tool_call_id": "tool_call_" + timestamp,
-  "tool": {
-    "name": "reschedule_meeting",
-    "arguments": {
-      "userEmail": "${_email}",
-      "newStartTime": "the new time they requested (ISO format)",
-      "reason": "User requested reschedule"
-    }
-  }
-}
-
-{
-  "type": "conversation.tool_call", 
-  "tool_call_id": "tool_call_" + timestamp,
-  "tool": {
-    "name": "end_call",
-    "arguments": {
-      "reason": "user_completed_task"
-    }
-  }
-}
-
 
 User's email: ${_email}. Timezone: ${_timezone}. All meetings are 30 minutes.
 
-IMPORTANT BOOKING RULES:
-- Users can only have ONE active meeting at a time
-- If user already has an upcoming meeting, offer to reschedule it instead of booking a new one
-- Always check the user's existing meetings before offering to book a new one
 
-${userEvents}
+Existing meetings: ${userEvents}
 
 Available times for new bookings: ${availability}`,
       callback_url: `${origin}/api/tavus/events`, // Keep callback for system events
