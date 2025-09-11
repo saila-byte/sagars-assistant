@@ -75,6 +75,50 @@ export async function POST(req: Request) {
         console.log('[tavus.events] Args type:', typeof args);
         console.log('[tavus.events] Args stringified:', JSON.stringify(args, null, 2));
         
+        // Check for existing meetings with Hassan before booking
+        try {
+          if (args.email) {
+            console.log('[tavus.events] Checking for existing meetings with user:', args.email);
+            
+            // Use the existing test-user-events API to check for existing meetings
+            const host = req.headers.get('host') || 'localhost:3000';
+            const protocol = req.headers.get('x-forwarded-proto') || 'https';
+            const baseUrl = `${protocol}://${host}`;
+            
+            const userEventsResponse = await fetch(`${baseUrl}/api/test-user-events?email=${encodeURIComponent(args.email)}`, {
+              method: 'GET',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (userEventsResponse.ok) {
+              const userEventsData = await userEventsResponse.json();
+              const meetingCount = userEventsData.totalEvents || 0;
+              console.log('[tavus.events] Found existing meetings count:', meetingCount);
+              console.log('[tavus.events] User events data:', JSON.stringify(userEventsData, null, 2));
+              
+              if (meetingCount > 1) {
+                console.log('[tavus.events] ⚠️ BLOCKING BOOKING: User has more than 1 existing meeting, processing as update instead of booking new meeting');
+                
+                // Successfully processed update_calendar tool call - user has existing meetings
+                return NextResponse.json({ 
+                  success: true,
+                  message: 'Calendar update processed - user has existing meetings',
+                  tool_call_id: body.tool_call_id || body.tool?.tool_call_id,
+                  action_taken: 'update_calendar_processed',
+                  existing_meetings_count: meetingCount
+                });
+              } else {
+                console.log('[tavus.events] ✅ PROCEEDING WITH BOOKING: User has', meetingCount, 'existing meetings (≤1), allowing new booking');
+              }
+            } else {
+              console.log('[tavus.events] ⚠️ Failed to fetch user events, proceeding with booking anyway');
+            }
+          }
+        } catch (error) {
+          console.error('[tavus.events] Error checking existing meetings:', error);
+          // Continue with booking if we can't check existing meetings
+        }
+        
         // Forward the tool call to the booking API
         try {
           const host = req.headers.get('host') || 'localhost:3000';

@@ -85,6 +85,49 @@ function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: str
   }
 }
 
+function sendEchoToTavus(conversationUrl: string | null, conversationId: string, message: string, modality: 'audio' | 'text' = 'text') {
+  if (!conversationUrl || !conversationId) {
+    return;
+  }
+  try {
+    const targetOrigin = new URL(conversationUrl).origin;
+    const iframes = Array.from(document.getElementsByTagName('iframe'));
+    const target = iframes.find((f) => {
+      try {
+        const src = f.getAttribute('src') || '';
+        return src.startsWith(targetOrigin);
+      } catch {
+        return false;
+      }
+    });
+    
+    // First send interrupt to stop current speech
+    target?.contentWindow?.postMessage(
+      {
+        message_type: 'conversation',
+        event_type: 'conversation.interrupt',
+        conversation_id: conversationId
+      },
+      targetOrigin
+    );
+    
+    // Then send the echo message using AppMessageEcho structure
+    target?.contentWindow?.postMessage(
+      {
+        message_type: 'conversation',
+        event_type: 'conversation.echo',
+        conversation_id: conversationId,
+        properties: {
+          modality: modality,
+          text: message
+        }
+      },
+      targetOrigin
+    );
+  } catch (e) {
+  }
+}
+
 function safeStringify(v: any) {
   try {
     return JSON.stringify(v, null, 2);
@@ -97,7 +140,7 @@ function safeStringify(v: any) {
 export default function Page() {
   const duration = 30; // Only 30-minute meetings
 
-  const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('haircheck');
+  const [step, setStep] = useState<'landing' | 'haircheck' | 'call'>('haircheck');
   const [email, setEmail] = useState('ashish@tavus.io');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
   const [errors, setErrors] = useState<string | null>(null);
@@ -119,7 +162,6 @@ export default function Page() {
 
   // Tool-call / debug state
   const [toolError, setToolError] = useState<string | null>(null);
-  const [bookingInfo, setBookingInfo] = useState<{ htmlLink?: string; hangoutLink?: string } | null>(null);
   const inFlightToolCalls = useRef<Set<string>>(new Set());
 
   // Debug panel state
@@ -228,18 +270,15 @@ export default function Page() {
         const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
         console.log('🔊 [ECHO] Sending echo message:', echoMessage);
         
+        // First interrupt any current speech, then send echo
+        tavusToolCalls.interruptReplica(conversationId);
         tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
         
         // Send success result back to Tavus
         tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
           ok: true,
-          start_time: bookingData.booked_start_time,
-          htmlLink: bookingData.htmlLink,
-          hangoutLink: bookingData.hangoutLink
+          start_time: bookingData.booked_start_time
         });
-        
-        setBookingInfo({ htmlLink: bookingData.htmlLink, hangoutLink: bookingData.hangoutLink });
-        setStep('confirm');
         
       } catch (error) {
         console.error('Error handling update_calendar tool call:', error);
@@ -436,8 +475,6 @@ export default function Page() {
       const data = await r.json();
       pushLog({ ts: Date.now(), origin: 'local', kind: r.ok && data?.ok ? 'info' : 'error', note: 'POST /api/book result', data });
       if (!r.ok || !data?.ok) throw new Error(data?.error || 'Booking failed');
-      setBookingInfo({ htmlLink: data.htmlLink, hangoutLink: data.hangoutLink });
-      setStep('confirm');
     } catch (e: any) {
       const msg = e?.message || 'Could not book this time.';
       setErrors(msg);
@@ -557,15 +594,33 @@ export default function Page() {
           return;
         }
 
+        // Format the booked time for echo message
+        const bookedTime = new Date(data.booked_start_time);
+        const attendeeName = email.split('@')[0]; // Extract name from email
+        const timeString = bookedTime.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        });
+        
+        // Send echo message to Tavus
+        const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
+        console.log('🔊 [ECHO] Sending echo message:', echoMessage);
+        
+        if (conversationUrl) {
+          // Extract conversationId from URL or use a placeholder
+          const conversationId = new URL(conversationUrl).searchParams.get('conversation_id') || 'unknown';
+          sendEchoToTavus(conversationUrl, conversationId, echoMessage, 'text');
+        }
 
         sendToolResultToTavus(conversationUrl, id, {
           ok: true,
-          start_time: data.booked_start_time,
-          htmlLink: data.htmlLink,
-          hangoutLink: data.hangoutLink
+          start_time: data.booked_start_time
         });
-        setBookingInfo({ htmlLink: data.htmlLink, hangoutLink: data.hangoutLink });
-        setStep('confirm');
       } finally {
         if ((msg as any)?.tool_call_id) inFlightToolCalls.current.delete((msg as any).tool_call_id);
       }
@@ -918,39 +973,6 @@ export default function Page() {
         </div>
       )}
 
-      {step === 'confirm' && (
-        <div className="max-w-2xl mx-auto px-6 py-20 text-center">
-          <div className="text-7xl mb-4">✅</div>
-          <h2 className="text-2xl mb-2" style={{ color: 'black' }}>You're all set!</h2>
-          <p className="terminal-text">
-            We've scheduled your {duration}-minute meeting with Hassaan. A confirmation
-            email will arrive at <span className="terminal-accent">{email}</span>.
-          </p>
-          {bookingInfo?.htmlLink && (
-            <p className="text-xs terminal-text mt-2">
-              Calendar link:{' '}
-              <a className="underline terminal-accent" href={bookingInfo.htmlLink} target="_blank" rel="noreferrer">
-                {bookingInfo.htmlLink}
-              </a>
-            </p>
-          )}
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <a
-              href="/"
-              className="terminal-button px-4 py-2 text-sm"
-              onClick={(e) => {
-                e.preventDefault();
-                setStep('landing');
-              }}
-            >
-              Book another
-            </a>
-            <button className="terminal-button px-4 py-2 text-sm" onClick={() => window.print()}>
-              Print
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Floating debug panel */}
       <button
