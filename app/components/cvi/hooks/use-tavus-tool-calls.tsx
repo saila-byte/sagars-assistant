@@ -19,6 +19,8 @@ export type ToolResult = {
   htmlLink?: string;
   hangoutLink?: string;
   error?: string;
+  originalEvent?: any;
+  newEvent?: any;
 };
 
 export const useTavusToolCalls = (
