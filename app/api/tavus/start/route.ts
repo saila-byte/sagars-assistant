@@ -133,6 +133,10 @@ User's email: ${_email}. Timezone: ${_timezone}. All meetings are 30 minutes. ${
       callback_url: `${origin}/api/tavus/events`, // Keep callback for system events
     };
 
+    console.log('🚀 [TAVUS.START] ===== PAYLOAD TO TAVUS =====');
+    console.log('[tavus.start] Payload:', JSON.stringify(payload, null, 2));
+    console.log('🚀 [TAVUS.START] ===== END PAYLOAD =====');
+
     // Email is passed via conversational_context - no need for callback context storage
     const r = await fetch(conversationsURL, {
       method: 'POST',

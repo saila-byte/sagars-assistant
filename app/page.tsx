@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Conversation } from './components/cvi/components/conversation';
 import { AvailabilitySidebar } from './components/availability-sidebar';
+import { useTavusToolCalls } from './components/cvi/hooks/use-tavus-tool-calls';
 
 // ---------- helpers ----------
 // Removed useMeetingDuration - only 30-minute meetings
@@ -63,7 +64,6 @@ type ToolResult =
 
 function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: string | undefined, result: ToolResult) {
   if (!conversationUrl || !tool_call_id) {
-    console.warn('[tool_result] Missing conversationUrl or tool_call_id; skipping postMessage', { conversationUrl, tool_call_id, result });
     return;
   }
   try {
@@ -77,13 +77,11 @@ function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: str
         return false;
       }
     });
-    console.log('[tool_result] Posting result back to Tavus iframe', { targetOrigin, tool_call_id, result });
     target?.contentWindow?.postMessage(
       { type: 'conversation.tool_result', tool_call_id, result },
       targetOrigin
     );
   } catch (e) {
-    console.error('[tool_result] Failed to postMessage result back to Tavus', e);
   }
 }
 
@@ -100,7 +98,7 @@ export default function Page() {
   const duration = 30; // Only 30-minute meetings
 
   const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('haircheck');
-  const [email, setEmail] = useState('saila@tavus.io');
+  const [email, setEmail] = useState('ashish@tavus.io');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
   const [errors, setErrors] = useState<string | null>(null);
   const [remembered, setRemembered] = useState<string | null>(null);
@@ -144,11 +142,124 @@ export default function Page() {
     }).join('\n---\n');
     try {
       await navigator.clipboard.writeText(text || '(no logs)');
-      console.log('[debug] Logs copied to clipboard');
     } catch (e) {
-      console.warn('[debug] Failed to copy logs', e);
     }
   }, [logs]);
+
+  // Handle tool calls from Tavus using the built-in hooks
+  const handleTavusToolCall = useCallback(async (toolCall: any, conversationId: string) => {
+    console.log('🔧 [TOOL_CALL] Received tool call via Tavus hooks:', { toolCall, conversationId });
+    pushLog({ ts: Date.now(), origin: 'tavus-hooks', kind: 'message', note: 'tool_call', data: toolCall });
+    
+    if (toolCall.name === 'update_calendar') {
+      try {
+        // Parse the arguments string into an object
+        const args = typeof toolCall.arguments === 'string' 
+          ? JSON.parse(toolCall.arguments) 
+          : toolCall.arguments;
+        
+        const inviteeEmail = String(args.email || email || '').trim();
+        const reqDuration = args.duration || 30; // Use provided duration or default to 30
+        const datetimeText = args.datetime || args.datetimeText || args.when || null;
+        const toolTimezone = args.timezone || timezone || 'America/Los_Angeles';
+        
+        console.log('🔧 [TOOL_CALL] Parsed arguments:', { 
+          inviteeEmail, 
+          reqDuration, 
+          datetimeText, 
+          toolTimezone,
+          rawArgs: args 
+        });
+        
+        if (!inviteeEmail || !datetimeText) {
+          const errorMsg = `Missing required parameters: ${!inviteeEmail ? 'email' : ''} ${!datetimeText ? 'datetime' : ''}`.trim();
+          console.error('🔧 [TOOL_CALL] Missing parameters:', { inviteeEmail, datetimeText, args });
+          tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+            ok: false,
+            error: errorMsg
+          });
+          return;
+        }
+        
+        // Call the booking API
+        const bookingResponse = await fetch('/api/tavus/intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            intent: 'BOOK_MEETING',
+            email: inviteeEmail,
+            duration: reqDuration,
+            datetimeText: datetimeText,
+            timezone: toolTimezone,
+            confirm: true,
+            title: args.title || 'Meeting with Sagar',
+            notes: args.notes || 'Booked via Tavus assistant'
+          })
+        });
+        
+        const bookingData = await bookingResponse.json();
+        
+        if (!bookingResponse.ok || !bookingData?.ok) {
+          tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+            ok: false,
+            error: bookingData?.error || 'Booking failed'
+          });
+          return;
+        }
+        
+        // Extract attendee name from email (everything before @)
+        const attendeeName = inviteeEmail.split('@')[0];
+        const meetingName = args.title || 'Meeting with Sagar';
+        
+        // Format the time for the echo message
+        const startTime = new Date(bookingData.booked_start_time);
+        const timeString = startTime.toLocaleString('en-US', {
+          timeZone: toolTimezone,
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        });
+        
+        // Send echo message to Tavus
+        const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
+        console.log('🔊 [ECHO] Sending echo message:', echoMessage);
+        
+        tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
+        
+        // Send success result back to Tavus
+        tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+          ok: true,
+          start_time: bookingData.booked_start_time,
+          htmlLink: bookingData.htmlLink,
+          hangoutLink: bookingData.hangoutLink
+        });
+        
+        setBookingInfo({ htmlLink: bookingData.htmlLink, hangoutLink: bookingData.hangoutLink });
+        setStep('confirm');
+        
+      } catch (error) {
+        console.error('Error handling update_calendar tool call:', error);
+        tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+          ok: false,
+          error: `Failed to book meeting: ${error instanceof Error ? error.message : 'Unknown error'}`
+        });
+      }
+    } else if (toolCall.name === 'end_call') {
+      // Handle call ending
+      setStep('landing');
+      setConversationUrl(null);
+      tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+        ok: true
+      });
+    }
+  }, [email, timezone]);
+
+  // Initialize Tavus tool calls hook
+  const tavusToolCalls = useTavusToolCalls(handleTavusToolCall);
 
   useEffect(() => {
     const last = localStorage.getItem('booking_last_email');
@@ -162,14 +273,12 @@ export default function Page() {
       return;
     }
     localStorage.setItem('booking_last_email', email);
-    console.log('[ui] Email accepted, moving to Haircheck', { email });
     setStep('haircheck');
   }
 
   const requestAV = useCallback(async () => {
     setErrors(null);
     try {
-      console.log('[haircheck] Requesting camera/mic');
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       setMediaStream(stream);
       if (videoRef.current) {
@@ -199,15 +308,12 @@ export default function Page() {
       tick();
 
       setAvReady(true);
-      console.log('[haircheck] AV granted');
     } catch (e) {
-      console.error('[haircheck] Failed to get camera/mic', e);
       setErrors("We couldn't access your camera/mic. Check permissions and try again.");
     }
   }, [mediaStream]);
 
   function leaveAV() {
-    console.log('[haircheck] Turning off AV');
     mediaStream?.getTracks().forEach((t) => t.stop());
     setMediaStream(null);
     setAvReady(false);
@@ -224,7 +330,6 @@ export default function Page() {
     }
     if (conversationUrl) {
       // Use pre-prepared URL
-      console.log('[call] Using pre-prepared conversation');
       setStep('call');
       pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Using pre-prepared conversation', data: { conversationUrl } });
       return;
@@ -243,7 +348,6 @@ export default function Page() {
       setStep('call');
       pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Conversation URL set', data: { conversationUrl } });
     } catch (e) {
-      console.error('[call] Failed to start conversation', e);
       setErrors('Could not start the assistant. Please try again.');
       pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Failed to start conversation', data: String(e) });
     }
@@ -258,17 +362,14 @@ export default function Page() {
       setErrors(null);
       setSelectedSlot(null);
       try {
-        console.log('[availability] Fetching slots', { duration, timezone });
         const res = await fetch(
           `/api/calendly/availability?duration=${duration}&timezone=${encodeURIComponent(timezone)}`,
           { cache: 'no-store' }
         );
         const data = await res.json();
-        console.log('[availability] Response', data);
         if (!cancelled) setSlots(Array.isArray(data.slots) ? data.slots : []);
         pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Loaded availability', data });
       } catch (e) {
-        console.error('[availability] Load failed', e);
         if (!cancelled) setErrors('Could not load availability from Calendly.');
         pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Availability load failed', data: String(e) });
       } finally {
@@ -283,7 +384,6 @@ export default function Page() {
     if (conversationPreparing || conversationUrl) return;
     setConversationPreparing(true);
     try {
-      console.log('[conversation] Preparing conversation in background...');
       const res = await fetch('/api/tavus/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -296,7 +396,6 @@ export default function Page() {
         pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Conversation prepared in background', data: { conversationUrl: newConversationUrl } });
       }
     } catch (e) {
-      console.error('[conversation] Failed to prepare conversation', e);
       pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Failed to prepare conversation', data: String(e) });
     } finally {
       setConversationPreparing(false);
@@ -306,7 +405,6 @@ export default function Page() {
   // Auto-initialize camera when on haircheck step
   useEffect(() => {
     if (step === 'haircheck' && !mediaStream) {
-      console.log('[haircheck] Auto-initializing camera...');
       requestAV();
     }
   }, [step, mediaStream, requestAV]);
@@ -314,7 +412,6 @@ export default function Page() {
   // Prepare conversation when camera is ready
   useEffect(() => {
     if (avReady && !conversationUrl && !conversationPreparing) {
-      console.log('[conversation] Camera ready, preparing conversation...');
       prepareConversation();
     }
   }, [avReady, conversationUrl, conversationPreparing, prepareConversation]);
@@ -329,7 +426,6 @@ export default function Page() {
   }) {
     const start_time = args?.start_time ?? selectedSlot?.start_time;
     if (!start_time) {
-      console.warn('[book] No start_time provided/selected');
       return;
     }
 
@@ -344,21 +440,18 @@ export default function Page() {
     try {
       setErrors(null);
       setBooking(true);
-      console.log('[book] POST /api/book →', body);
       const r = await fetch('/api/book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       const data = await r.json();
-      console.log('[book] /api/book result', { status: r.status, data });
       pushLog({ ts: Date.now(), origin: 'local', kind: r.ok && data?.ok ? 'info' : 'error', note: 'POST /api/book result', data });
       if (!r.ok || !data?.ok) throw new Error(data?.error || 'Booking failed');
       setBookingInfo({ htmlLink: data.htmlLink, hangoutLink: data.hangoutLink });
       setStep('confirm');
     } catch (e: any) {
       const msg = e?.message || 'Could not book this time.';
-      console.error('[book] Booking error', msg);
       setErrors(msg);
       pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Booking error', data: msg });
     } finally {
@@ -370,13 +463,6 @@ export default function Page() {
   const handleToolCall = useCallback(
     async (msg: ToolCallMsg) => {
       try {
-        console.log('🔧 [TOOL_CALL] ===== RECEIVED TOOL CALL =====');
-        console.log('[tool_call] Full message:', JSON.stringify(msg, null, 2));
-        console.log('[tool_call] Message type:', typeof msg);
-        console.log('[tool_call] Is array:', Array.isArray(msg));
-        console.log('[tool_call] Has tool property:', 'tool' in msg);
-        console.log('[tool_call] Has name property:', 'name' in msg);
-        console.log('[tool_call] Message keys:', Object.keys(msg));
         
         // Handle different message formats
         let name: string | undefined;
@@ -384,38 +470,25 @@ export default function Page() {
         let toolCallId: string | undefined;
         
         if (Array.isArray(msg) && msg.length > 0) {
-          console.log('[tool_call] Processing array format, length:', msg.length);
           // Format from system prompt: [{ "name": "update_calendar", "parameters": {...} }]
           const toolCall = msg[0];
           name = toolCall?.name;
           args = toolCall?.parameters;
           toolCallId = toolCall?.id || `tool_${Date.now()}`;
-          console.log('[tool_call] Array - first item:', toolCall);
         } else if (msg.tool) {
-          console.log('[tool_call] Processing tool object format');
           // Format: { tool: { name: "update_calendar", arguments: {...} } }
           name = msg.tool.name;
           args = msg.tool.arguments;
           toolCallId = msg.tool_call_id;
-          console.log('[tool_call] Tool object:', msg.tool);
         } else {
-          console.log('[tool_call] Processing direct format');
           // Format: { name: "update_calendar", arguments: {...} }
           name = msg.name;
           args = msg.arguments;
           toolCallId = msg.tool_call_id;
-          console.log('[tool_call] Direct properties:', { name: msg.name, arguments: msg.arguments });
         }
         
-        console.log('🔧 [TOOL_CALL] ===== EXTRACTED VALUES =====');
-        console.log('[tool_call] Name:', name);
-        console.log('[tool_call] Args:', args);
-        console.log('[tool_call] Tool Call ID:', toolCallId);
-        console.log('[tool_call] Args type:', typeof args);
-        console.log('[tool_call] Args stringified:', JSON.stringify(args, null, 2));
 
         if (name === 'end_call') {
-          console.log('[tool_call] End call requested:', args);
           // Actually end the call by going back to landing
           setStep('landing');
           setConversationUrl(null); // Clear the conversation URL
@@ -426,21 +499,18 @@ export default function Page() {
         }
 
         if (name !== 'update_calendar') {
-          console.log('[tool_call] Ignored different tool:', name);
           return;
         }
 
         const id = toolCallId || '';
         if (id && inFlightToolCalls.current.has(id)) {
-          console.warn('[tool_call] Duplicate tool_call_id, ignoring', id);
           return;
         }
         if (id) inFlightToolCalls.current.add(id);
 
         if (typeof args === 'string') {
-          try { args = JSON.parse(args); } catch (e) { console.warn('[tool_call] Could not parse string args', args, e); }
+          try { args = JSON.parse(args); } catch (e) { /* Could not parse string args */ }
         }
-        console.log('[tool_call] Parsed args', args);
 
         const inviteeEmail = String(args.email || email || '').trim();
         const reqDuration = 30; // Only 30-minute meetings
@@ -452,7 +522,6 @@ export default function Page() {
 
         if (!inviteeEmail || (!whenISO && !datetimeText)) {
           const errorMsg = 'Missing email or time in tool args';
-          console.error('[tool_call] ' + errorMsg, { inviteeEmail, whenISO, datetimeText });
           sendToolResultToTavus(conversationUrl, id, { ok: false, error: errorMsg });
           setToolError('Missing booking info from tool call.');
           return;
@@ -460,7 +529,6 @@ export default function Page() {
 
         // Path A: ISO provided → book directly
         if (whenISO) {
-          console.log('[tool_call] ISO detected, calling confirmAndBook', { inviteeEmail, whenISO, reqDuration });
           await confirmAndBook({
             email: inviteeEmail,
             start_time: whenISO,
@@ -473,7 +541,6 @@ export default function Page() {
         }
 
         // Path B: Natural language → send to intent endpoint to parse + check availability + book
-        console.log('[tool_call] No ISO; calling /api/tavus/intent', { inviteeEmail, datetimeText, timezone: toolTimezone, reqDuration });
         const bookingPayload = {
             intent: 'BOOK_MEETING',
             email: inviteeEmail,
@@ -485,8 +552,6 @@ export default function Page() {
             title: args.title || 'Intro with Sagar'
         };
         
-        console.log('[tool_call] Booking request payload:', bookingPayload);
-        console.log('[tool_call] Calling /api/tavus/intent...');
         
         const res = await fetch('/api/tavus/intent', {
           method: 'POST',
@@ -494,23 +559,15 @@ export default function Page() {
           body: JSON.stringify(bookingPayload),
         });
         
-        console.log('[tool_call] Intent API response status:', res.status);
         const data = await res.json();
-        console.log('[tool_call] Intent API response data:', data);
 
         if (!res.ok || !data?.ok) {
           const errorMsg = data?.error || 'Booking failed via intent';
-          console.error('[tool_call] Intent booking failed:', { status: res.status, error: errorMsg, data });
           sendToolResultToTavus(conversationUrl, id, { ok: false, error: errorMsg });
           setToolError(errorMsg);
           return;
         }
 
-        console.log('[tool_call] Booking successful!', {
-          start_time: data.booked_start_time,
-          htmlLink: data.htmlLink,
-          hangoutLink: data.hangoutLink
-        });
 
         sendToolResultToTavus(conversationUrl, id, {
           ok: true,
@@ -527,41 +584,28 @@ export default function Page() {
     [conversationUrl, duration, email, timezone]
   );
 
-  // Listen for Tavus app_messages via postMessage from Conversation (iframe)
+  // OLD postMessage implementation - replaced with Tavus hooks above
+  // Keeping this commented out for reference
+  /*
   useEffect(() => {
     function handleAppMessage(event: any) {
-      console.log('🔔 [APP_MESSAGE] ===== NEW MESSAGE RECEIVED =====');
-      console.log('🔔 [APP_MESSAGE] Event:', event);
-      console.log('🔔 [APP_MESSAGE] Timestamp:', new Date().toISOString());
+      console.log('🔧 [TOOL_CALL] ===== APP MESSAGE RECEIVED =====')
       
       // The message is directly in the event data
       const message = event.data;
-      console.log('🔔 [APP_MESSAGE] Message data:', message);
-      console.log('🔔 [APP_MESSAGE] Message type:', message?.message_type);
-      console.log('🔔 [APP_MESSAGE] Event type:', message?.event_type);
       
       // Check if we have a valid message with the expected structure
       if (!message || !message.message_type || !message.event_type) {
-        console.log('🔔 [APP_MESSAGE] Invalid message structure:', message);
         return;
       }
-      
-      // Log user utterances
-      if (message.message_type === 'conversation' && message.event_type === 'conversation.utterance' && 
-          message.properties?.role === 'user') {
-        console.log('🔔 [APP_MESSAGE] User said:', message.properties.speech);
-      }
-      
+    
       // Only process tool call events
       if (message.message_type === 'conversation' && message.event_type === 'conversation.tool_call') {
-        console.log('🔔 [APP_MESSAGE] ===== TOOL CALL DETECTED =====');
         
         // The tool call is directly in the properties object
         const toolCall = message.properties;
-        console.log('🔔 [APP_MESSAGE] Tool call:', toolCall);
         
         if (!toolCall) {
-          console.log('🔔 [APP_MESSAGE] No tool call found in message properties');
           return;
         }
         
@@ -572,7 +616,6 @@ export default function Page() {
 
     // Handle tool calls from app messages (similar to sample code)
     async function handleToolCallFromAppMessage(toolCall: any, conversationId: string) {
-      console.log('🔧 [TOOL_CALL] Processing tool call from app message:', toolCall);
       
       if (toolCall.name === 'update_calendar') {
         try {
@@ -581,7 +624,6 @@ export default function Page() {
             ? JSON.parse(toolCall.arguments) 
             : toolCall.arguments;
           
-          console.log('🔧 [TOOL_CALL] Parsed arguments:', args);
           
           const inviteeEmail = String(args.email || email || '').trim();
           const reqDuration = 30; // Only 30-minute meetings
@@ -589,12 +631,10 @@ export default function Page() {
           const toolTimezone = args.timezone || timezone || 'America/Los_Angeles';
           
           if (!inviteeEmail || !datetimeText) {
-            console.error('🔧 [TOOL_CALL] Missing email or time in tool args');
             return;
           }
           
           // Call the booking API
-          console.log('🔧 [TOOL_CALL] Calling booking API...');
           const bookingResponse = await fetch('/api/tavus/intent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -611,16 +651,13 @@ export default function Page() {
           });
           
           const bookingData = await bookingResponse.json();
-          console.log('🔧 [TOOL_CALL] Booking result:', bookingData);
           
           // Send response back to Tavus (if needed)
           // This would require Daily.co call object to send app messages back
           
         } catch (error) {
-          console.error('🔧 [TOOL_CALL] Error processing booking:', error);
         }
       } else if (toolCall.name === 'end_call') {
-        console.log('🔧 [TOOL_CALL] End call requested:', toolCall.arguments);
         // Handle call ending
         setStep('landing');
         setConversationUrl(null);
@@ -638,26 +675,14 @@ export default function Page() {
 
     function onMessage(e: MessageEvent) {
       // Log ALL postMessage events for debugging
-      console.log('📨 [POSTMESSAGE] ===== ALL MESSAGES =====');
-      console.log('[pm] Origin:', e.origin);
-      console.log('[pm] Data:', e.data);
-      console.log('[pm] Data type:', typeof e.data);
-      console.log('[pm] Data stringified:', JSON.stringify(e.data, null, 2));
-      console.log('[pm] Timestamp:', new Date().toISOString());
       
       if (!conversationUrl) {
-        console.log('[pm] No conversation URL, ignoring');
         return;
       }
       if (!looksLikeTavusOrigin(e.origin)) {
-        console.log('[pm] Ignoring non-Tavus origin:', e.origin);
         return;
       }
 
-      console.log('📨 [POSTMESSAGE] ===== TAVUS MESSAGE =====');
-      console.log('[pm] postMessage from Tavus/Daily origin', e.origin, e.data);
-      console.log('[pm] Message type:', e.data?.type, 'Event type:', e.data?.event_type);
-      console.log('[pm] Message keys:', Object.keys(e.data || {}));
       pushLog({ ts: Date.now(), origin: e.origin, kind: 'message', note: 'postMessage', data: e.data });
 
       // Try to handle as app message first (new approach)
@@ -666,31 +691,20 @@ export default function Page() {
       // Fallback to old approach
       const tc = extractToolCallPayload(e.data);
       if (tc) {
-        console.log('🔧 [POSTMESSAGE] ===== TOOL CALL DETECTED =====');
-        console.log('[pm] Detected conversation.tool_call, calling handler...');
-        console.log('[pm] Tool call payload:', tc);
         handleToolCall(tc);
       } else {
-        console.log('[pm] No tool call detected in message');
         // Let's also check if there are any other interesting message types
         if (e.data?.type || e.data?.event_type) {
-          console.log('[pm] Message has type/event_type but not recognized as tool call:', {
-            type: e.data.type,
-            event_type: e.data.event_type,
-            data: e.data
-          });
         }
       }
     }
 
-    console.log('🔧 [SETUP] Setting up postMessage listener');
     window.addEventListener('message', onMessage);
-    console.log('🔧 [SETUP] PostMessage listener added');
     return () => {
-      console.log('🔧 [CLEANUP] Removing postMessage listener');
       window.removeEventListener('message', onMessage);
     };
   }, [conversationUrl, handleToolCall, pushLog]);
+  */
 
   // ---------- UI ----------
 
@@ -899,7 +913,6 @@ export default function Page() {
               loadingSlots={loadingSlots}
               selectedSlot={selectedSlot}
               onSlotSelect={(slot) => {
-                console.log('[ui] Slot selected', slot.start_time);
                 setSelectedSlot(slot);
               }}
               onBook={confirmAndBook}
@@ -933,7 +946,6 @@ export default function Page() {
               className="terminal-button px-4 py-2 text-sm"
               onClick={(e) => {
                 e.preventDefault();
-                console.log('[ui] Resetting to landing');
                 setStep('landing');
               }}
             >
