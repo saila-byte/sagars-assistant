@@ -59,7 +59,7 @@ type ToolCallMsg = {
 };
 
 type ToolResult =
-  | { ok: true; start_time?: string; htmlLink?: string; hangoutLink?: string }
+  | { ok: true; start_time?: string; htmlLink?: string; hangoutLink?: string; originalEvent?: any; newEvent?: any }
   | { ok: false; error: string };
 
 function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: string | undefined, result: ToolResult) {
@@ -285,6 +285,92 @@ export default function Page() {
         tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
           ok: false,
           error: `Failed to book meeting: ${error instanceof Error ? error.message : 'Unknown error'}`
+        });
+      }
+    } else if (toolCall.name === 'reschedule_meeting') {
+      try {
+        // Parse the arguments string into an object
+        const args = typeof toolCall.arguments === 'string' 
+          ? JSON.parse(toolCall.arguments) 
+          : toolCall.arguments;
+        
+        console.log('🔧 [TOOL_CALL] Processing reschedule_meeting with args:', args);
+        
+        const userEmail = args.userEmail || email;
+        const newStartTime = args.newStartTime;
+        const reason = args.reason || 'User requested reschedule';
+        
+        if (!userEmail || !newStartTime) {
+          const errorMsg = `Missing required parameters: ${!userEmail ? 'userEmail' : ''} ${!newStartTime ? 'newStartTime' : ''}`.trim();
+          console.error('🔧 [TOOL_CALL] Missing parameters:', { userEmail, newStartTime, args });
+          tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+            ok: false,
+            error: errorMsg
+          });
+          return;
+        }
+        
+        // Call the reschedule API
+        const rescheduleResponse = await fetch('/api/reschedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userEmail: userEmail,
+            newStartTime: newStartTime,
+            reason: reason
+          })
+        });
+        
+        const rescheduleData = await rescheduleResponse.json();
+        
+        if (!rescheduleResponse.ok || !rescheduleData?.ok) {
+          tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+            ok: false,
+            error: rescheduleData?.error || 'Reschedule failed'
+          });
+          return;
+        }
+        
+        // Format the new time for the echo message
+        const newStart = new Date(newStartTime);
+        const timeString = newStart.toLocaleString('en-US', {
+          timeZone: timezone || 'America/Los_Angeles',
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        });
+        
+        // Send echo message to Tavus
+        const echoMessage = `I successfully rescheduled your meeting to ${timeString}.`;
+        console.log('🔊 [ECHO] Sending reschedule echo message:', echoMessage);
+        
+        // First interrupt any current speech, then send echo
+        tavusToolCalls.interruptReplica(conversationId);
+        tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
+        
+        // Send follow-up message after a brief delay
+        setTimeout(() => {
+          const followUpMessage = "Hassan is looking forward to meet you.";
+          console.log('🔊 [ECHO] Sending follow-up message:', followUpMessage);
+          tavusToolCalls.sendEcho(conversationId, followUpMessage, 'text');
+        }, 2000); // 2 second delay
+        
+        // Send success result back to Tavus
+        tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+          ok: true,
+          originalEvent: rescheduleData.originalEvent,
+          newEvent: rescheduleData.newEvent
+        });
+        
+      } catch (error) {
+        console.error('Error handling reschedule_meeting tool call:', error);
+        tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+          ok: false,
+          error: `Failed to reschedule meeting: ${error instanceof Error ? error.message : 'Unknown error'}`
         });
       }
     } else if (toolCall.name === 'end_call') {
