@@ -344,20 +344,13 @@ export default function Page() {
           timeZoneName: 'short'
         });
         
-        // Send echo message to Tavus
-        const echoMessage = `I successfully rescheduled your meeting to ${timeString}.`;
+        // Send combined echo message to Tavus
+        const echoMessage = `I successfully rescheduled your meeting to ${timeString}. Hassan is looking forward to meet you.`;
         console.log('🔊 [ECHO] Sending reschedule echo message:', echoMessage);
         
         // First interrupt any current speech, then send echo
         tavusToolCalls.interruptReplica(conversationId);
         tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
-        
-        // Send follow-up message after a brief delay
-        setTimeout(() => {
-          const followUpMessage = "Hassan is looking forward to meet you.";
-          console.log('🔊 [ECHO] Sending follow-up message:', followUpMessage);
-          tavusToolCalls.sendEcho(conversationId, followUpMessage, 'text');
-        }, 2000); // 2 second delay
         
         // Send success result back to Tavus
         tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
