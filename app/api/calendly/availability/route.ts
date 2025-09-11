@@ -18,10 +18,10 @@ export async function GET(req: Request) {
     );
   }
 
-  // Calendly requires future window <= 7 days
+  // Calendly requires future window <= 7 days, but let's try to get more slots
   const now = new Date();
   const start = new Date(now.getTime() + 60_000); // +1 minute to avoid "past" edge cases
-  const end = new Date(now.getTime() + 6.5 * 24 * 60 * 60 * 1000); // ~6.5 days
+  const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // Full 7 days
 
   const url = new URL('https://api.calendly.com/event_type_available_times');
   url.searchParams.set('event_type', eventType);
@@ -40,11 +40,27 @@ export async function GET(req: Request) {
   }
 
   const data = await r.json();
+  
+  console.log('📅 [CALENDLY] Request details:', {
+    eventType: eventType,
+    startTime: isoZ(start),
+    endTime: isoZ(end),
+    timezone: timezone,
+    duration: duration
+  });
+  console.log('📅 [CALENDLY] Raw response:', JSON.stringify(data, null, 2));
+  console.log('📅 [CALENDLY] Collection length:', data?.collection?.length || 0);
+  
   const slots = (data?.collection || []).map((s: any) => ({
     start_time: s.start_time,
     end_time: s.end_time,
     scheduling_url: s.scheduling_url || null,
   }));
+
+  console.log('📅 [CALENDLY] Processed slots:', slots.map(s => ({
+    start: new Date(s.start_time).toLocaleString('en-US', { timeZone: timezone }),
+    end: s.end_time ? new Date(s.end_time).toLocaleString('en-US', { timeZone: timezone }) : 'N/A'
+  })));
 
   return NextResponse.json({ slots, duration, timezone });
 }

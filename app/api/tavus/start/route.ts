@@ -24,18 +24,33 @@ async function fetchAvailability(timezone: string): Promise<string> {
     const data = await response.json();
     
     if (data.slots && data.slots.length > 0) {
-      const slots = data.slots.slice(0, 5); // Get first 5 slots
-      const slotText = slots.map((slot: any) => 
-        `${new Date(slot.start_time).toLocaleString('en-US', { 
+      // Group slots by day for better organization
+      const slotsByDay = data.slots.reduce((acc: any, slot: any) => {
+        const date = new Date(slot.start_time);
+        const dayKey = date.toLocaleDateString('en-US', { 
           weekday: 'short', 
           month: 'short', 
-          day: 'numeric', 
-          hour: 'numeric', 
-          minute: '2-digit',
+          day: 'numeric',
           timeZone: timezone 
-        })}`
-      ).join(', ');
-      return `Available slots: ${slotText}`;
+        });
+        if (!acc[dayKey]) acc[dayKey] = [];
+        acc[dayKey].push(slot);
+        return acc;
+      }, {});
+
+      // Format each day's slots
+      const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]: [string, any]) => {
+        const times = daySlots.slice(0, 3).map((slot: any) => 
+          new Date(slot.start_time).toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            timeZone: timezone 
+          })
+        ).join(', ');
+        return `${day}: ${times}${daySlots.length > 3 ? ` (+${daySlots.length - 3} more)` : ''}`;
+      });
+
+      return `Available slots: ${dayTexts.join(' | ')}`;
     }
     
     return 'No available slots found';
