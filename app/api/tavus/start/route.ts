@@ -5,6 +5,7 @@ type StartBody = {
   email?: string;       // kept for later use if you want to pass context
   duration?: number;    // kept for later use
   timezone?: string;    // kept for later use
+  slots?: Array<{ start_time: string; end_time?: string; scheduling_url?: string | null }>;  // availability slots from frontend
 };
 
 // Helper function to fetch user's future assistant-booked events
@@ -83,6 +84,9 @@ async function fetchAvailability(timezone: string): Promise<string> {
     }
     
     const data = await response.json();
+    console.log('🚀 [TAVUS.START] ===== AVAILABILITY =====');
+    console.log('[tavus.start] Availability:', data);
+    console.log('🚀 [TAVUS.START] ===== END AVAILABILITY =====');
     
     if (data.slots && data.slots.length > 0) {
       // Group slots by day for better organization
@@ -99,16 +103,16 @@ async function fetchAvailability(timezone: string): Promise<string> {
         return acc;
       }, {});
 
-      // Format each day's slots
+      // Format each day's slots - show ALL times for conversation context
       const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]: [string, any]) => {
-        const times = daySlots.slice(0, 3).map((slot: any) => 
+        const times = daySlots.map((slot: any) => 
           new Date(slot.start_time).toLocaleTimeString('en-US', { 
             hour: 'numeric', 
             minute: '2-digit',
             timeZone: timezone 
           })
         ).join(', ');
-        return `${day}: ${times}${daySlots.length > 3 ? ` (+${daySlots.length - 3} more)` : ''}`;
+        return `${day}: ${times}`;
       });
 
       return `Available slots: ${dayTexts.join(' | ')}`;
@@ -147,9 +151,50 @@ export async function POST(req: Request) {
       );
     }
 
+
     // --- Fetch availability and user events ---
+
+    // --- Use provided slots or fetch availability as fallback ---
     const availability = await fetchAvailability(_timezone);
     const userEvents = _email ? await fetchUserEvents(_email) : 'No user email provided';
+    if (body.slots && body.slots.length > 0) {
+      console.log('🚀 [TAVUS.START] ===== USING PROVIDED SLOTS =====');
+      console.log('[tavus.start] Provided slots:', body.slots);
+      console.log('🚀 [TAVUS.START] ===== END PROVIDED SLOTS =====');
+      
+      // Use slots provided from frontend - reuse the same formatting logic as fetchAvailability
+      const slotsByDay = body.slots.reduce((acc: any, slot: any) => {
+        const date = new Date(slot.start_time);
+        const dayKey = date.toLocaleDateString('en-US', { 
+          weekday: 'short', 
+          month: 'short', 
+          day: 'numeric',
+          timeZone: _timezone 
+        });
+        if (!acc[dayKey]) acc[dayKey] = [];
+        acc[dayKey].push(slot);
+        return acc;
+      }, {});
+
+      // Format each day's slots - show ALL times for conversation context
+      const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]: [string, any]) => {
+        const times = daySlots.map((slot: any) => 
+          new Date(slot.start_time).toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit',
+            timeZone: _timezone 
+          })
+        ).join(', ');
+        return `${day}: ${times}`;
+      });
+
+      availability = `Available slots: ${dayTexts.join(' | ')}`;
+    } else {
+      console.log('🚀 [TAVUS.START] ===== FETCHING AVAILABILITY (FALLBACK) =====');
+      // Fallback to fetching availability using the existing function
+      availability = await fetchAvailability(_timezone);
+    }
+
     
     // --- Minimal payload to isolate auth/IDs (matches your working curl shape) ---
     const origin = process.env.NODE_ENV === 'production' 
@@ -160,6 +205,7 @@ export async function POST(req: Request) {
       replica_id: replicaId,
       custom_greeting: "Hi, I'm AI Hudson, Hassaan's assistant. How can I help you today? I can answer questions about Hassaan and help you book a 30-minute meeting with him.",
       // Pass user context directly to Tavus conversation
+
       conversational_context: `You are Hassaan's calendar booking assistant. 
 
 CRITICAL: You MUST use tool calls to book meetings and end calls.
@@ -205,6 +251,7 @@ When the user wants to reschedule an existing meeting, use this tool call:
     }
   }
 }
+
 
 User's email: ${_email}. Timezone: ${_timezone}. All meetings are 30 minutes.
 
