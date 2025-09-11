@@ -20,7 +20,7 @@ export async function getTokens() {
     console.log('[googleTokens] Tokens loaded from file');
     return tokens;
   } catch (error) {
-    console.log('[googleTokens] No tokens file found or error reading:', error.message);
+    console.log('[googleTokens] No tokens file found or error reading:', error instanceof Error ? error.message : String(error));
     return null;
   }
 }
