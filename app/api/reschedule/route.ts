@@ -31,12 +31,11 @@ const findUserAssistantEvents = async (userEmail: string) => {
     maxResults: 50 // Reasonable limit for future events
   });
   
-  // Filter for events where user is attendee and was booked via assistant
+  // Filter for events where user is attendee (show ALL future events, not just assistant-booked)
   const userMeetings = response.data.items?.filter(event => 
     event.attendees?.some(attendee => 
       attendee.email === userEmail && attendee.responseStatus !== 'declined'
-    ) &&
-    event.description?.includes('Booked via Hassaan\'s assistant')
+    )
   ) || [];
   
   return userMeetings;
