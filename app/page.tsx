@@ -424,7 +424,7 @@ export default function Page() {
           });
           return;
         }
-        
+
         if (name !== 'update_calendar') {
           console.log('[tool_call] Ignored different tool:', name);
           return;
@@ -475,14 +475,14 @@ export default function Page() {
         // Path B: Natural language → send to intent endpoint to parse + check availability + book
         console.log('[tool_call] No ISO; calling /api/tavus/intent', { inviteeEmail, datetimeText, timezone: toolTimezone, reqDuration });
         const bookingPayload = {
-          intent: 'BOOK_MEETING',
-          email: inviteeEmail,
-          duration: reqDuration,
-          datetimeText,
+            intent: 'BOOK_MEETING',
+            email: inviteeEmail,
+            duration: reqDuration,
+            datetimeText,
           timezone: toolTimezone,
-          confirm: true,
-          notes: args.notes,
-          title: args.title || 'Intro with Sagar'
+            confirm: true,
+            notes: args.notes,
+            title: args.title || 'Intro with Sagar'
         };
         
         console.log('[tool_call] Booking request payload:', bookingPayload);
@@ -693,19 +693,6 @@ export default function Page() {
   }, [conversationUrl, handleToolCall, pushLog]);
 
   // ---------- UI ----------
-  function TopBar() {
-    return (
-      <div className="w-full flex items-center justify-between p-4 border-b terminal-border sticky top-0 z-10" style={{ background: 'var(--terminal-bg)', borderColor: 'var(--terminal-green)' }}>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 terminal-border flex items-center justify-center font-semibold terminal-green">T</div>
-          <div className="text-sm terminal-text">Tavus • Sagar's Assistant</div>
-        </div>
-        <div className="text-xs terminal-text">
-          Duration: <span className="font-medium terminal-green">{duration} min</span>
-        </div>
-      </div>
-    );
-  }
 
   const visibleLogs = logs.filter((l) => {
     if (!filterToolCalls) return true;
@@ -723,14 +710,13 @@ export default function Page() {
 
   return (
     <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
-      <TopBar />
 
       {step === 'landing' && (
         <div className="max-w-3xl mx-auto px-6 py-12">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight mb-2 terminal-green">Book a {duration}-minute meeting with Sagar</h1>
-            <p className="terminal-text max-w-prose">
-              I'm Sagar's assistant. I can schedule a <b className="terminal-accent">30-minute</b> meeting for you.
+            <h1 className="text-3xl tracking-tight mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Sagar</h1>
+            <p className="max-w-prose" style={{ color: 'black' }}>
+              I'm Sagar's assistant. I can schedule a 30-minute meeting for you.
               Tell me your email below to get started.
             </p>
           </div>
@@ -739,23 +725,23 @@ export default function Page() {
             <div className="p-6 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium terminal-green mb-2">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@company.com"
+                  <label className="block text-sm mb-2" style={{ color: 'black' }}>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
                     className="w-full terminal-input rounded"
-                  />
-                  {remembered && !email && (
+                />
+                {remembered && !email && (
                     <button onClick={() => setEmail(remembered)} className="text-xs underline terminal-text mt-1">
-                      Use last email: {remembered}
-                    </button>
-                  )}
+                    Use last email: {remembered}
+                  </button>
+                )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium terminal-green mb-2">Timezone</label>
+                  <label className="block text-sm mb-2" style={{ color: 'black' }}>Timezone</label>
                   <select
                     value={timezone}
                     onChange={(e) => setTimezone(e.target.value)}
@@ -773,7 +759,7 @@ export default function Page() {
 
                 <button
                   onClick={handleStart}
-                  className="w-full mt-2 terminal-button px-4 py-3 font-medium"
+                  className="w-full mt-2 terminal-button px-4 py-3"
                 >
                   Continue → Haircheck
                 </button>
@@ -781,7 +767,7 @@ export default function Page() {
             </div>
 
             <div className="p-6 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
-              <h3 className="font-semibold mb-2 terminal-green">What happens next</h3>
+              <h3 className="mb-2" style={{ color: 'black' }}>What happens next</h3>
               <ul className="text-sm terminal-text list-disc pl-5 space-y-1">
                 <li>We'll test your camera and mic.</li>
                 <li>Join a quick AI-powered assistant call.</li>
@@ -791,7 +777,7 @@ export default function Page() {
               <div className="mt-4 text-xs terminal-text">
                 <div>Tip: All meetings are 30 minutes in duration.</div>
                 <div className="mt-1">
-                  Times will be shown in: <span className="font-medium terminal-green">
+                  Times will be shown in: <span className="terminal-green">
                     {TIMEZONE_OPTIONS.find(tz => tz.value === timezone)?.label || timezone}
                   </span>
                 </div>
@@ -804,7 +790,7 @@ export default function Page() {
       {step === 'haircheck' && (
         <div className="max-w-5xl mx-auto px-6 py-10">
           <div className="mb-6 flex items-center justify-between">
-            <div><h2 className="text-2xl font-semibold terminal-green">Meet Sagar's AI Assistant</h2>
+            <div><h2 className="text-2xl" style={{ color: 'black' }}>Meet Sagar's AI Assistant</h2>
               <p className="text-sm terminal-text">
                 {!mediaStream 
                   ? 'Initializing camera & microphone...' 
@@ -823,15 +809,9 @@ export default function Page() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 items-start">
-            <div className="md:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
+            <div className="md:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)', boxShadow: '6px 6px 0px 0px var(--color-scheme-1-border)' }}>
               <div className="aspect-video terminal-border rounded overflow-hidden flex items-center justify-center" style={{ background: 'var(--terminal-bg)' }}>
                 <video ref={videoRef} className="w-full h-full object-cover" muted />
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="text-sm terminal-text">Microphone level</div>
-                <div className="h-2 w-48 rounded-full terminal-border overflow-hidden" style={{ background: 'var(--terminal-bg)' }}>
-                  <div className="h-2 terminal-green transition-all" style={{ width: `${Math.min(100, Math.floor(micLevel * 200))}%`, background: 'var(--terminal-green)' }} />
-                </div>
               </div>
 
               <div className="mt-4 flex gap-3">
@@ -842,7 +822,7 @@ export default function Page() {
                       Requesting camera & microphone access...
                     </div>
                     {errors && (
-                      <button onClick={requestAV} className="terminal-button px-4 py-2 text-sm font-medium">
+                      <button onClick={requestAV} className="terminal-button px-4 py-2 text-sm">
                         Try Again
                       </button>
                     )}
@@ -853,7 +833,7 @@ export default function Page() {
                     <button 
                       onClick={goToCall} 
                       disabled={conversationPreparing}
-                      className="terminal-button px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="terminal-button px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {conversationPreparing ? (
                         <div className="flex items-center gap-2">
@@ -872,14 +852,14 @@ export default function Page() {
               {errors && <div className="mt-3 text-sm terminal-error">{errors}</div>}
             </div>
 
-            <div className="p-4 terminal-border space-y-3" style={{ background: 'var(--terminal-bg)' }}>
+            <div className="p-4 terminal-border space-y-3 content-container">
               <div>
                 <div className="text-xs uppercase tracking-wide terminal-text mb-1">You</div>
                 <div className="text-sm terminal-green">{email}</div>
                 <div className="text-xs terminal-text">{duration}-minute session</div>
                 <div className="text-xs terminal-text mt-1">
                   Timezone: {TIMEZONE_OPTIONS.find(tz => tz.value === timezone)?.label || timezone}
-                </div>
+              </div>
               </div>
               <div className="text-xs terminal-text">One assistant persona is used for all durations.</div>
             </div>
@@ -888,9 +868,9 @@ export default function Page() {
       )}
 
       {step === 'call' && (
-        <div className="max-w-6xl mx-auto px-6 py-10">
+        <div className="max-w-6xl mx-auto px-6 py-10 content-container">
           <div className="mb-6 flex items-center justify-between">
-            <div><h2 className="text-2xl font-semibold terminal-green">Scheduling Call</h2></div>
+            <div><h2 className="text-2xl" style={{ color: 'black' }}>Scheduling Call</h2></div>
             <button onClick={() => setStep('haircheck')} className="text-sm underline terminal-text">← Back</button>
           </div>
 
@@ -898,14 +878,14 @@ export default function Page() {
             {/* Left: Tavus */}
             <div className="lg:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
               {conversationUrl ? (
-                <div className="aspect-video rounded-xl overflow-hidden">
+                <div className="aspect-video rounded-xl overflow-hidden content-container">
                   <Conversation conversationUrl={conversationUrl} onLeave={() => setStep('landing')} />
                 </div>
               ) : (
                 <div className="aspect-video rounded-xl overflow-hidden bg-black/5 flex items-center justify-center">
                   <div className="text-center">
                     <div className="text-6xl mb-3">🎥</div>
-                    <div className="font-medium">Loading assistant…</div>
+                    <div>Loading assistant…</div>
                     <div className="text-sm text-zinc-600">Please wait a moment.</div>
                   </div>
                 </div>
@@ -934,10 +914,10 @@ export default function Page() {
       {step === 'confirm' && (
         <div className="max-w-2xl mx-auto px-6 py-20 text-center">
           <div className="text-7xl mb-4">✅</div>
-          <h2 className="text-2xl font-semibold mb-2 terminal-green">You're all set!</h2>
+          <h2 className="text-2xl mb-2" style={{ color: 'black' }}>You're all set!</h2>
           <p className="terminal-text">
             We've scheduled your {duration}-minute meeting with Sagar. A confirmation
-            email will arrive at <span className="font-medium terminal-accent">{email}</span>.
+            email will arrive at <span className="terminal-accent">{email}</span>.
           </p>
           {bookingInfo?.htmlLink && (
             <p className="text-xs terminal-text mt-2">
@@ -959,7 +939,7 @@ export default function Page() {
             >
               Book another
             </a>
-            <button className="terminal-button px-4 py-2 text-sm font-medium" onClick={() => window.print()}>
+            <button className="terminal-button px-4 py-2 text-sm" onClick={() => window.print()}>
               Print
             </button>
           </div>
@@ -977,7 +957,7 @@ export default function Page() {
       {debugOpen && (
         <div className="fixed bottom-14 right-4 w-[420px] max-h-[60vh] z-50 bg-white border rounded-xl shadow-xl flex flex-col">
           <div className="px-3 py-2 border-b flex items-center gap-2">
-            <div className="font-medium text-sm">Event Log</div>
+            <div className="text-sm">Event Log</div>
             <label className="ml-auto flex items-center gap-1 text-xs text-zinc-600">
               <input
                 type="checkbox"
@@ -1011,9 +991,6 @@ export default function Page() {
         </div>
       )}
 
-      <footer className="max-w-6xl mx-auto px-6 py-10 text-xs terminal-text">
-        <div className="terminal-border pt-6" style={{ borderTop: '1px solid var(--terminal-green)' }}>Built for Sagar • Single Tavus persona • Voice tool-calls → server-side booking.</div>
-      </footer>
     </div>
   );
 }

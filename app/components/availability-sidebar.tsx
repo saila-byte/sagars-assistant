@@ -102,7 +102,7 @@ export function AvailabilitySidebar({
   };
 
   return (
-    <div className="p-4 terminal-border space-y-4" style={{ background: 'var(--terminal-bg)' }}>
+    <div className="p-4 terminal-border space-y-4 content-container">
       <div>
         <div className="text-xs uppercase tracking-wide terminal-text mb-3">
           Available Times ({dayGroups.length} days)
