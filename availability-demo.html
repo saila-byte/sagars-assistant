@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Availability Sidebar Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-md mx-auto">
+        <h1 class="text-2xl font-bold mb-6">New Availability Sidebar</h1>
+        
+        <!-- Demo of the new availability sidebar -->
+        <div class="p-4 rounded-2xl border bg-white shadow-sm space-y-4">
+            <div>
+                <div class="text-xs uppercase tracking-wide text-zinc-500 mb-3">
+                    Available Times (3 days)
+                </div>
+                
+                <div class="space-y-2">
+                    <!-- Today -->
+                    <div class="border border-zinc-200 rounded-lg overflow-hidden">
+                        <button class="w-full px-3 py-2 text-left flex items-center justify-between hover:bg-zinc-50 transition-colors bg-blue-50 border-blue-200">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-sm">Today - Monday, Sep 9</span>
+                                <span class="text-xs text-zinc-500">(3 slots)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <svg class="w-4 h-4 text-zinc-400 transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </button>
+                        
+                        <div class="border-t border-zinc-200 bg-zinc-50">
+                            <div class="p-3 grid grid-cols-2 gap-2">
+                                <button class="rounded-lg border px-3 py-2 text-sm text-center transition-colors border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-200">
+                                    9:00 AM
+                                </button>
+                                <button class="rounded-lg border px-3 py-2 text-sm text-center transition-colors border-zinc-300 hover:border-zinc-400 hover:bg-white">
+                                    2:00 PM
+                                </button>
+                                <button class="rounded-lg border px-3 py-2 text-sm text-center transition-colors border-zinc-300 hover:border-zinc-400 hover:bg-white">
+                                    4:30 PM
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tomorrow -->
+                    <div class="border border-zinc-200 rounded-lg overflow-hidden">
+                        <button class="w-full px-3 py-2 text-left flex items-center justify-between hover:bg-zinc-50 transition-colors">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-sm">Tomorrow - Tuesday, Sep 10</span>
+                                <span class="text-xs text-zinc-500">(2 slots)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-zinc-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </button>
+                    </div>
+
+                    <!-- Wednesday -->
+                    <div class="border border-zinc-200 rounded-lg overflow-hidden">
+                        <button class="w-full px-3 py-2 text-left flex items-center justify-between hover:bg-zinc-50 transition-colors">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-sm">Wednesday, Sep 11</span>
+                                <span class="text-xs text-zinc-500">(4 slots)</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-zinc-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <button class="w-full mt-4 rounded-xl bg-black text-white px-4 py-2 text-sm font-medium">
+                    Confirm & Book
+                </button>
+            </div>
+
+            <div>
+                <div class="text-xs uppercase tracking-wide text-zinc-500 mb-2">Guardrails</div>
+                <ul class="text-sm text-zinc-600 list-disc pl-5 space-y-1">
+                    <li>Respect chosen duration (30 minutes)</li>
+                    <li>No private calendar details disclosed</li>
+                    <li>Confirm time before booking</li>
+                    <li>Graceful fallback if APIs fail</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 class="font-semibold text-blue-800 mb-2">✨ New Features:</h3>
+            <ul class="text-sm text-blue-700 space-y-1">
+                <li>• <strong>Day-based organization</strong> - Slots grouped by day</li>
+                <li>• <strong>Collapsible dropdowns</strong> - Click to expand/collapse each day</li>
+                <li>• <strong>Smart labels</strong> - "Today", "Tomorrow", or day name</li>
+                <li>• <strong>Visual indicators</strong> - Blue dot shows selected day</li>
+                <li>• <strong>Slot count</strong> - Shows number of available slots per day</li>
+                <li>• <strong>Better UX</strong> - Cleaner, more organized interface</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

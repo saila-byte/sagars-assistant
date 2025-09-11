@@ -1,26 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
+/* Custom Font Face Declarations */
+@font-face {
+  font-family: 'PerfectlyNineties';
+  src: url('/fonts/PerfectlyNineties-Black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --terminal-bg: #0d1117;
+  --terminal-green: #00ff41;
+  --terminal-green-dim: #00cc33;
+  --terminal-green-bright: #39ff14;
+  --terminal-text: #c9d1d9;
+  --terminal-border: #30363d;
+  --terminal-accent: #ff6b35;
+  --terminal-warning: #ffa500;
+  --terminal-error: #ff4444;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--terminal-bg);
+  --color-foreground: var(--terminal-text);
+  --font-sans: 'PerfectlyNineties', 'JetBrains Mono', 'Courier New', monospace;
+  --font-mono: 'PerfectlyNineties', 'JetBrains Mono', 'Courier New', monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--terminal-bg);
+  color: var(--terminal-text);
+  font-family: 'PerfectlyNineties', 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-x: hidden;
+}
+
+/* Retro terminal effects */
+.terminal-glow {
+  box-shadow: 
+    0 0 10px var(--terminal-green),
+    0 0 20px var(--terminal-green),
+    0 0 30px var(--terminal-green);
+}
+
+.terminal-border {
+  border: 2px solid var(--terminal-green);
+  border-radius: 4px;
+}
+
+.terminal-button {
+  background: var(--terminal-bg);
+  border: 2px solid var(--terminal-green);
+  color: var(--terminal-green);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s ease;
+}
+
+.terminal-button:hover {
+  background: var(--terminal-green);
+  color: var(--terminal-bg);
+  box-shadow: 0 0 15px var(--terminal-green);
+}
+
+.terminal-input {
+  background: var(--terminal-bg);
+  border: 2px solid var(--terminal-green);
+  color: var(--terminal-green);
+  font-family: 'JetBrains Mono', monospace;
+  padding: 8px 12px;
+}
+
+.terminal-input:focus {
+  outline: none;
+  box-shadow: 0 0 10px var(--terminal-green);
+}
+
+.terminal-text {
+  color: var(--terminal-text);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.terminal-green {
+  color: var(--terminal-green);
+}
+
+.terminal-accent {
+  color: var(--terminal-accent);
+}
+
+.terminal-warning {
+  color: var(--terminal-warning);
+}
+
+.terminal-error {
+  color: var(--terminal-error);
+}
+
+/* Scanline effect */
+.terminal-scanlines::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    transparent 50%,
+    rgba(0, 255, 65, 0.03) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Cursor blink effect */
+.terminal-cursor::after {
+  content: '█';
+  color: var(--terminal-green);
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Retro scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--terminal-bg);
+  border: 1px solid var(--terminal-border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--terminal-green);
+  border: 1px solid var(--terminal-bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--terminal-green-bright);
 }

@@ -2,11 +2,32 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Conversation } from './components/cvi/components/conversation';
+import { AvailabilitySidebar } from './components/availability-sidebar';
 
 // ---------- helpers ----------
 // Removed useMeetingDuration - only 30-minute meetings
 
 const emailRegex = /[^@\s]+@[^@\s]+\.[^@\s]+/;
+
+function extractToolCallPayload(data: any): ToolCallMsg | null {
+  if (!data || typeof data !== 'object') return null;
+
+  // Check for direct tool call format
+  if (data.type === 'conversation.tool_call' && data.tool) {
+    return {
+      type: data.type,
+      tool_call_id: data.tool_call_id,
+      tool: data.tool
+    };
+  }
+
+  // Check for nested tool call format
+  if (data.message_type === 'conversation' && data.event_type === 'conversation.tool_call') {
+    return data.properties || null;
+  }
+
+  return null;
+}
 
 type Slot = { start_time: string; scheduling_url: string | null };
 
@@ -62,11 +83,12 @@ function safeStringify(v: any) {
 export default function Page() {
   const duration = 30; // Only 30-minute meetings
 
-  const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('landing');
+  const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('haircheck');
   const [email, setEmail] = useState('saila@tavus.io');
   const [errors, setErrors] = useState<string | null>(null);
   const [remembered, setRemembered] = useState<string | null>(null);
   const [conversationUrl, setConversationUrl] = useState<string | null>(null);
+  const [conversationPreparing, setConversationPreparing] = useState(false);
 
   // Availability UI (optional manual booking)
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -127,7 +149,7 @@ export default function Page() {
     setStep('haircheck');
   }
 
-  async function requestAV() {
+  const requestAV = useCallback(async () => {
     setErrors(null);
     try {
       console.log('[haircheck] Requesting camera/mic');
@@ -165,7 +187,7 @@ export default function Page() {
       console.error('[haircheck] Failed to get camera/mic', e);
       setErrors("We couldn't access your camera/mic. Check permissions and try again.");
     }
-  }
+  }, [mediaStream]);
 
   function leaveAV() {
     console.log('[haircheck] Turning off AV');
@@ -179,6 +201,18 @@ export default function Page() {
       setErrors('Please allow camera & mic to continue.');
       return;
     }
+    if (conversationPreparing) {
+      setErrors('Please wait for conversation to prepare...');
+      return;
+    }
+    if (conversationUrl) {
+      // Use pre-prepared URL
+      console.log('[call] Using pre-prepared conversation');
+      setStep('call');
+      pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Using pre-prepared conversation', data: { conversationUrl } });
+      return;
+    }
+    // Fallback: start conversation now (shouldn't happen in normal flow)
     try {
       const res = await fetch('/api/tavus/start', {
         method: 'POST',
@@ -227,6 +261,48 @@ export default function Page() {
     })();
     return () => { cancelled = true; };
   }, [step, duration, pushLog]);
+
+  // -------- Conversation preparation --------
+  const prepareConversation = useCallback(async () => {
+    if (conversationPreparing || conversationUrl) return;
+    setConversationPreparing(true);
+    try {
+      console.log('[conversation] Preparing conversation in background...');
+      const res = await fetch('/api/tavus/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const payload = await res.json();
+      const { conversationUrl: newConversationUrl } = payload;
+      if (newConversationUrl) {
+        setConversationUrl(newConversationUrl);
+        console.log('[conversation] Conversation prepared successfully');
+        pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Conversation prepared in background', data: { conversationUrl: newConversationUrl } });
+      }
+    } catch (e) {
+      console.error('[conversation] Failed to prepare conversation', e);
+      pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Failed to prepare conversation', data: String(e) });
+    } finally {
+      setConversationPreparing(false);
+    }
+  }, [conversationPreparing, conversationUrl, email, pushLog]);
+
+  // Auto-initialize camera when on haircheck step
+  useEffect(() => {
+    if (step === 'haircheck' && !mediaStream) {
+      console.log('[haircheck] Auto-initializing camera...');
+      requestAV();
+    }
+  }, [step, mediaStream, requestAV]);
+
+  // Prepare conversation when camera is ready
+  useEffect(() => {
+    if (avReady && !conversationUrl && !conversationPreparing) {
+      console.log('[conversation] Camera ready, preparing conversation...');
+      prepareConversation();
+    }
+  }, [avReady, conversationUrl, conversationPreparing, prepareConversation]);
 
   // -------- Manual confirm button (fallback) --------
   async function confirmAndBook(args?: {
@@ -329,9 +405,7 @@ export default function Page() {
           setStep('landing');
           setConversationUrl(null); // Clear the conversation URL
           sendToolResultToTavus(conversationUrl, toolCallId, { 
-            success: true, 
-            message: 'Call ended successfully',
-            reason: args.reason || 'user_completed_task'
+            ok: true
           });
           return;
         }
@@ -663,7 +737,6 @@ export default function Page() {
                   </button>
                 )}
 
-                <div className="text-xs text-zinc-500">Duration from URL/path: <b>{duration} minutes</b></div>
 
                 {errors && <div className="text-sm text-red-600">{errors}</div>}
 
@@ -693,44 +766,81 @@ export default function Page() {
       {step === 'haircheck' && (
         <div className="max-w-5xl mx-auto px-6 py-10">
           <div className="mb-6 flex items-center justify-between">
-            <div><h2 className="text-2xl font-semibold">Haircheck</h2>
-              <p className="text-sm text-zinc-600">Allow camera & microphone so we can connect you to the assistant.</p>
+            <div><h2 className="text-2xl font-semibold terminal-green">Meet Sagar's AI Assistant</h2>
+              <p className="text-sm terminal-text">
+                {!mediaStream 
+                  ? 'Initializing camera & microphone...' 
+                  : conversationPreparing 
+                    ? 'Camera & microphone ready. Preparing conversation...' 
+                    : conversationUrl 
+                      ? 'Ready! Click "Join Assistant Call" to book a 30-minute meeting with Sagar.'
+                      : 'Camera & microphone ready. You can join the assistant call to book a 30-minute meeting with Sagar.'
+                }
+              </p>
             </div>
-            <button onClick={() => setStep('landing')} className="text-sm underline text-zinc-600">← Back</button>
+            <button onClick={() => {
+              setStep('landing');
+              setConversationPreparing(false);
+            }} className="text-sm underline terminal-text">← Back</button>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 items-start">
-            <div className="md:col-span-2 p-4 rounded-2xl border bg-white shadow-sm">
-              <div className="aspect-video bg-black/5 rounded-xl overflow-hidden flex items-center justify-center">
+            <div className="md:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
+              <div className="aspect-video terminal-border rounded overflow-hidden flex items-center justify-center" style={{ background: 'var(--terminal-bg)' }}>
                 <video ref={videoRef} className="w-full h-full object-cover" muted />
               </div>
               <div className="mt-4 flex items-center justify-between">
-                <div className="text-sm text-zinc-600">Microphone level</div>
-                <div className="h-2 w-48 rounded-full bg-zinc-100 overflow-hidden">
-                  <div className="h-2 bg-black transition-all" style={{ width: `${Math.min(100, Math.floor(micLevel * 200))}%` }} />
+                <div className="text-sm terminal-text">Microphone level</div>
+                <div className="h-2 w-48 rounded-full terminal-border overflow-hidden" style={{ background: 'var(--terminal-bg)' }}>
+                  <div className="h-2 terminal-green transition-all" style={{ width: `${Math.min(100, Math.floor(micLevel * 200))}%`, background: 'var(--terminal-green)' }} />
                 </div>
               </div>
 
               <div className="mt-4 flex gap-3">
                 {!mediaStream ? (
-                  <button onClick={requestAV} className="rounded-xl bg-black text-white px-4 py-2 text-sm font-medium">Allow Camera & Mic</button>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center gap-2 text-sm terminal-text">
+                      <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
+                      Requesting camera & microphone access...
+                    </div>
+                    {errors && (
+                      <button onClick={requestAV} className="terminal-button px-4 py-2 text-sm font-medium">
+                        Try Again
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <>
-                    <button onClick={leaveAV} className="rounded-xl border px-4 py-2 text-sm">Turn Off</button>
-                    <button onClick={goToCall} className="rounded-xl bg-black text-white px-4 py-2 text-sm font-medium">Join Assistant Call</button>
+                    <button onClick={leaveAV} className="terminal-button px-4 py-2 text-sm">Turn Off</button>
+                    <button 
+                      onClick={goToCall} 
+                      disabled={conversationPreparing}
+                      className="terminal-button px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {conversationPreparing ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
+                          Preparing...
+                        </div>
+                      ) : conversationUrl ? (
+                        'Join Assistant Call'
+                      ) : (
+                        'Join Assistant Call'
+                      )}
+                    </button>
                   </>
                 )}
               </div>
-              {errors && <div className="mt-3 text-sm text-red-600">{errors}</div>}
+              {errors && <div className="mt-3 text-sm terminal-error">{errors}</div>}
             </div>
 
-            <div className="p-4 rounded-2xl border bg-white shadow-sm space-y-3">
+            <div className="p-4 terminal-border space-y-3" style={{ background: 'var(--terminal-bg)' }}>
               <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1">You</div>
-                <div className="text-sm text-zinc-700">{email}</div>
-                <div className="text-xs text-zinc-500">{duration}-minute session</div>
+                <div className="text-xs uppercase tracking-wide terminal-text mb-1">You</div>
+                <div className="text-sm terminal-green">{email}</div>
+                <div className="text-xs terminal-text">{duration}-minute session</div>
               </div>
-              <div className="text-xs text-zinc-500">One assistant persona is used for all durations.</div>
+              <div className="text-xs terminal-text">One assistant persona is used for all durations.</div>
             </div>
           </div>
         </div>
@@ -763,52 +873,19 @@ export default function Page() {
             </div>
 
             {/* Right: availability + optional manual booking */}
-            <div className="p-4 rounded-2xl border bg-white shadow-sm space-y-4">
-              <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1">Available (next 7 days)</div>
-                {loadingSlots && <div className="text-sm text-zinc-600">Loading times…</div>}
-                {!loadingSlots && !slots.length && <div className="text-sm text-zinc-600">No open times returned.</div>}
-                <div className="grid grid-cols-2 gap-2">
-                  {slots.map((s) => {
-                    const d = new Date(s.start_time);
-                    const label = d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-                    const isSelected = selectedSlot?.start_time === s.start_time;
-                    return (
-                      <button
-                        key={s.start_time}
-                        onClick={() => {
-                          console.log('[ui] Slot selected', s.start_time);
-                          setSelectedSlot({ start_time: s.start_time });
-                        }}
-                        className={`rounded-xl border px-3 py-2 text-sm text-left hover:border-black ${isSelected ? 'border-black ring-1 ring-black/10' : ''}`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  disabled={!selectedSlot || booking}
-                  onClick={() => confirmAndBook()}
-                  className="w-full mt-3 rounded-xl bg-black text-white px-4 py-2 text-sm font-medium disabled:opacity-50"
-                >
-                  {booking ? 'Booking…' : selectedSlot ? 'Confirm & Book' : 'Select a time to continue'}
-                </button>
-
-                {errors && <div className="mt-2 text-sm text-red-600">{errors}</div>}
-              </div>
-
-              <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-500 mb-1">Guardrails</div>
-                <ul className="text-sm text-zinc-600 list-disc pl-5 space-y-1">
-                  <li>Respect chosen duration ({duration} minutes)</li>
-                  <li>No private calendar details disclosed</li>
-                  <li>Confirm time before booking</li>
-                  <li>Graceful fallback if APIs fail</li>
-                </ul>
-              </div>
-            </div>
+            <AvailabilitySidebar
+              slots={slots}
+              loadingSlots={loadingSlots}
+              selectedSlot={selectedSlot}
+              onSlotSelect={(slot) => {
+                console.log('[ui] Slot selected', slot.start_time);
+                setSelectedSlot(slot);
+              }}
+              onBook={confirmAndBook}
+              booking={booking}
+              errors={errors}
+              duration={duration}
+            />
           </div>
         </div>
       )}
