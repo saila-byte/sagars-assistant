@@ -355,9 +355,9 @@ export default function Page() {
     }
   }
 
-  // -------- Availability (fetch on "call" step) --------
+  // -------- Availability (fetch on "haircheck" step, before conversation preparation) --------
   useEffect(() => {
-    if (step !== 'call') return;
+    if (step !== 'haircheck') return;
     let cancelled = false;
     (async () => {
       setLoadingSlots(true);
@@ -389,7 +389,7 @@ export default function Page() {
       const res = await fetch('/api/tavus/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, timezone }),
+        body: JSON.stringify({ email, timezone, slots }),
       });
       const payload = await res.json();
       const { conversationUrl: newConversationUrl } = payload;
@@ -402,7 +402,7 @@ export default function Page() {
     } finally {
       setConversationPreparing(false);
     }
-  }, [conversationPreparing, conversationUrl, email, timezone, pushLog]);
+  }, [conversationPreparing, conversationUrl, email, timezone, slots, pushLog]);
 
   // Auto-initialize camera when on haircheck step
   useEffect(() => {
@@ -411,12 +411,12 @@ export default function Page() {
     }
   }, [step, mediaStream, requestAV]);
 
-  // Prepare conversation when camera is ready
+  // Prepare conversation when camera is ready AND availability is loaded
   useEffect(() => {
-    if (avReady && !conversationUrl && !conversationPreparing) {
+    if (avReady && !conversationUrl && !conversationPreparing && !loadingSlots && slots.length >= 0) {
       prepareConversation();
     }
-  }, [avReady, conversationUrl, conversationPreparing, prepareConversation]);
+  }, [avReady, conversationUrl, conversationPreparing, loadingSlots, slots, prepareConversation]);
 
   // -------- Manual confirm button (fallback) --------
   async function confirmAndBook(args?: {
@@ -814,11 +814,13 @@ export default function Page() {
               <p className="text-sm terminal-text">
                 {!mediaStream 
                   ? 'Initializing camera & microphone...' 
-                  : conversationPreparing 
-                    ? 'Camera & microphone ready. Preparing conversation...' 
-                    : conversationUrl 
-                      ? 'Ready! Click "Join Call" to book a 30-minute meeting with Hassaan.'
-                      : 'Camera & microphone ready. You can join the assistant call to book a 30-minute meeting with Hassaan.'
+                  : loadingSlots 
+                    ? 'Camera & microphone ready. Loading availability...'
+                    : conversationPreparing 
+                      ? 'Availability loaded. Preparing conversation...' 
+                      : conversationUrl 
+                        ? 'Ready! Click "Join Call" to book a 30-minute meeting with Hassaan.'
+                        : 'Camera & microphone ready. You can join the assistant call to book a 30-minute meeting with Hassaan.'
                 }
               </p>
             </div>
