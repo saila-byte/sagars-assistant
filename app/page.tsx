@@ -330,29 +330,13 @@ export default function Page() {
       setErrors('Please wait for conversation to prepare...');
       return;
     }
-    if (conversationUrl) {
-      // Use pre-prepared URL
-      setStep('call');
-      pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Using pre-prepared conversation', data: { conversationUrl } });
+    if (!conversationUrl) {
+      setErrors('Conversation not ready yet. Please wait a moment and try again.');
       return;
     }
-    // Fallback: start conversation now (shouldn't happen in normal flow)
-    try {
-      const res = await fetch('/api/tavus/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, timezone }),
-      });
-      const payload = await res.json();
-      const { conversationUrl } = payload;
-      if (!conversationUrl) throw new Error('No conversationUrl returned');
-      setConversationUrl(conversationUrl);
-      setStep('call');
-      pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Conversation URL set', data: { conversationUrl } });
-    } catch (e) {
-      setErrors('Could not start the assistant. Please try again.');
-      pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Failed to start conversation', data: String(e) });
-    }
+    // Use pre-prepared URL
+    setStep('call');
+    pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Using pre-prepared conversation', data: { conversationUrl } });
   }
 
   // -------- Availability (fetch on "haircheck" step, before conversation preparation) --------

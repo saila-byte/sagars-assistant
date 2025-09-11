@@ -1,5 +1,7 @@
 // app/api/tavus/start/route.ts
 import { NextResponse } from 'next/server';
+import { google } from 'googleapis';
+import { getValidTokens } from '@/lib/googleTokens';
 
 type StartBody = {
   email?: string;       // kept for later use if you want to pass context
@@ -155,12 +157,9 @@ export async function POST(req: Request) {
     // --- Fetch availability and user events ---
 
     // --- Use provided slots or fetch availability as fallback ---
-    const availability = await fetchAvailability(_timezone);
+    let availability: string;
     const userEvents = _email ? await fetchUserEvents(_email) : 'No user email provided';
     if (body.slots && body.slots.length > 0) {
-      console.log('🚀 [TAVUS.START] ===== USING PROVIDED SLOTS =====');
-      console.log('[tavus.start] Provided slots:', body.slots);
-      console.log('🚀 [TAVUS.START] ===== END PROVIDED SLOTS =====');
       
       // Use slots provided from frontend - reuse the same formatting logic as fetchAvailability
       const slotsByDay = body.slots.reduce((acc: any, slot: any) => {
@@ -208,24 +207,6 @@ export async function POST(req: Request) {
 
       conversational_context: `You are Hassaan's calendar booking assistant. 
 
-CRITICAL: You MUST use tool calls to book meetings and end calls.
-
-When a user wants to book a meeting, use this tool call:
-{
-  "type": "conversation.tool_call",
-  "tool_call_id": "tool_call_" + timestamp,
-  "tool": {
-    "name": "update_calendar",
-    "arguments": {
-      "email": "${_email}",
-      "duration": 30,
-      "datetimeText": "the time they requested",
-      "timezone": "${_timezone}",
-      "title": "Meeting with Hassaan",
-      "notes": "Booked via Tavus assistant"
-    }
-  }
-}
 
 When the user wants to reschedule an existing meeting, use this tool call:
 {
