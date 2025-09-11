@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     // Create event (with Google Meet)
     const eventData = {
       summary: title,
-      description: notes,
+      description: `${notes}\n\nBooked via Hassaan's assistant\nUser: ${email}`,
       start: { dateTime: start.toISOString(), timeZone: timezone },
       end: { dateTime: end.toISOString(), timeZone: timezone },
       attendees: [{ email }],

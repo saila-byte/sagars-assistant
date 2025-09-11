@@ -112,6 +112,43 @@ export async function POST(req: Request) {
             error: error instanceof Error ? error.message : String(error)
           });
         }
+      } else if (toolName === 'reschedule_meeting') {
+        const args = body.tool?.arguments || body.arguments || body.parameters || {};
+        console.log('🔧 [TAVUS.EVENTS] ===== RESCHEDULE_MEETING TOOL CALL =====');
+        console.log('[tavus.events] Processing reschedule_meeting tool call with args:', args);
+        
+        // Forward the tool call to the reschedule API
+        try {
+          const host = req.headers.get('host') || 'localhost:3000';
+          const protocol = req.headers.get('x-forwarded-proto') || 'https';
+          const baseUrl = `${protocol}://${host}`;
+          const rescheduleResponse = await fetch(`${baseUrl}/api/reschedule`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userEmail: args.userEmail,
+              newStartTime: args.newStartTime,
+              reason: args.reason || 'User requested reschedule'
+            })
+          });
+          
+          const rescheduleData = await rescheduleResponse.json();
+          console.log('[tavus.events] Reschedule response:', rescheduleData);
+          
+          return NextResponse.json({ 
+            success: true, 
+            message: 'Tool call processed and meeting rescheduled',
+            tool_call_id: body.tool_call_id || body.tool?.tool_call_id,
+            reschedule_result: rescheduleData
+          });
+        } catch (error) {
+          console.error('[tavus.events] Error processing reschedule:', error);
+          return NextResponse.json({ 
+            success: false, 
+            message: 'Error processing reschedule',
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
       } else if (toolName === 'end_call') {
         const args = body.tool?.arguments || body.arguments || body.parameters || {};
         console.log('[tavus.events] Processing end_call tool call with args:', args);
