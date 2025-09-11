@@ -238,14 +238,6 @@ export default function Page() {
       });
       const payload = await res.json();
       const { conversationUrl } = payload;
-      console.log('🚀 [PAGE] Received conversationUrl from API:', conversationUrl);
-      console.log('🚀 [PAGE] URL validation:', {
-        exists: !!conversationUrl,
-        type: typeof conversationUrl,
-        length: conversationUrl?.length,
-        startsWith: conversationUrl?.startsWith('https://'),
-        containsDaily: conversationUrl?.includes('daily.co')
-      });
       if (!conversationUrl) throw new Error('No conversationUrl returned');
       setConversationUrl(conversationUrl);
       setStep('call');
@@ -299,17 +291,8 @@ export default function Page() {
       });
       const payload = await res.json();
       const { conversationUrl: newConversationUrl } = payload;
-      console.log('🚀 [PREPARE] Received conversationUrl from API:', newConversationUrl);
-      console.log('🚀 [PREPARE] URL validation:', {
-        exists: !!newConversationUrl,
-        type: typeof newConversationUrl,
-        length: newConversationUrl?.length,
-        startsWith: newConversationUrl?.startsWith('https://'),
-        containsDaily: newConversationUrl?.includes('daily.co')
-      });
       if (newConversationUrl) {
         setConversationUrl(newConversationUrl);
-        console.log('[conversation] Conversation prepared successfully');
         pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Conversation prepared in background', data: { conversationUrl: newConversationUrl } });
       }
     } catch (e) {

@@ -41,26 +41,11 @@ export async function GET(req: Request) {
 
   const data = await r.json();
   
-  console.log('📅 [CALENDLY] Request details:', {
-    eventType: eventType,
-    startTime: isoZ(start),
-    endTime: isoZ(end),
-    timezone: timezone,
-    duration: duration
-  });
-  console.log('📅 [CALENDLY] Raw response:', JSON.stringify(data, null, 2));
-  console.log('📅 [CALENDLY] Collection length:', data?.collection?.length || 0);
-  
   const slots = (data?.collection || []).map((s: any) => ({
     start_time: s.start_time,
     end_time: s.end_time,
     scheduling_url: s.scheduling_url || null,
   }));
-
-  console.log('📅 [CALENDLY] Processed slots:', slots.map(s => ({
-    start: new Date(s.start_time).toLocaleString('en-US', { timeZone: timezone }),
-    end: s.end_time ? new Date(s.end_time).toLocaleString('en-US', { timeZone: timezone }) : 'N/A'
-  })));
 
   return NextResponse.json({ slots, duration, timezone });
 }

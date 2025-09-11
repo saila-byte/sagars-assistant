@@ -11,22 +11,14 @@ export const useCVICall = (): {
 
 	const joinCall = useCallback(
 		({ url }: { url: string }) => {
-			console.log('🔗 [CVI_CALL] Joining call with URL:', url);
-			console.log('🔗 [CVI_CALL] URL type:', typeof url);
-			console.log('🔗 [CVI_CALL] URL length:', url?.length);
-			console.log('🔗 [CVI_CALL] Daily object exists:', !!daily);
-			
 			if (!url || typeof url !== 'string') {
-				console.error('❌ [CVI_CALL] Invalid URL provided:', url);
 				return;
 			}
 			
 			if (!daily) {
-				console.error('❌ [CVI_CALL] Daily object not ready');
 				return;
 			}
 			
-			// Add error handling for the join call
 			daily.join({
 				url: url,
 				inputSettings: {
@@ -37,7 +29,7 @@ export const useCVICall = (): {
 					},
 				},
 			}).catch((error) => {
-				console.error('❌ [CVI_CALL] Join failed:', error);
+				console.error('Join failed:', error);
 			});
 		},
 		[daily]
