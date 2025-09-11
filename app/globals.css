@@ -11,15 +11,15 @@
 }
 
 :root {
-  --terminal-bg: #0d1117;
-  --terminal-green: #00ff41;
-  --terminal-green-dim: #00cc33;
-  --terminal-green-bright: #39ff14;
-  --terminal-text: #c9d1d9;
-  --terminal-border: #30363d;
-  --terminal-accent: #ff6b35;
-  --terminal-warning: #ffa500;
-  --terminal-error: #ff4444;
+  --terminal-bg: rgba(255, 255, 255, 0.9);
+  --terminal-green: #4299e1;
+  --terminal-green-dim: #3182ce;
+  --terminal-green-bright: #63b3ed;
+  --terminal-text: #2d3748;
+  --terminal-border: #e2e8f0;
+  --terminal-accent: #d53f8c;
+  --terminal-warning: #dd6b20;
+  --terminal-error: #e53e3e;
 }
 
 @theme inline {
@@ -31,12 +31,20 @@
 
 body {
   background: var(--terminal-bg);
+  background-image: url('/background.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--terminal-text);
   font-family: 'PerfectlyNineties', 'JetBrains Mono', 'Courier New', monospace;
   font-size: 14px;
   line-height: 1.4;
   overflow-x: hidden;
+  position: relative;
 }
+
+/* Removed overlay to show background image clearly */
 
 /* Retro terminal effects */
 .terminal-glow {
@@ -112,7 +120,7 @@ body {
   height: 100%;
   background: linear-gradient(
     transparent 50%,
-    rgba(0, 255, 65, 0.03) 50%
+    rgba(66, 153, 225, 0.02) 50%
   );
   background-size: 100% 4px;
   pointer-events: none;
