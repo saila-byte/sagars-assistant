@@ -7,6 +7,68 @@ type StartBody = {
   timezone?: string;    // kept for later use
 };
 
+// Helper function to fetch user's future assistant-booked events
+async function fetchUserEvents(userEmail: string): Promise<string> {
+  try {
+    const tokens = await getValidTokens();
+    if (!tokens) {
+      return 'Unable to fetch user events (not authenticated)';
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID!;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI!;
+
+    const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+    oauth2.setCredentials(tokens);
+
+    const calendar = google.calendar({ version: 'v3', auth: oauth2 });
+    
+    // Search for future events where user is an attendee
+    const response = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: new Date().toISOString(), // Only future events
+      timeMax: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Next 30 days
+      singleEvents: true,
+      orderBy: 'startTime',
+      q: userEmail, // Search by attendee email
+      maxResults: 10 // Limit to prevent too much context
+    });
+    
+    // Filter for events where user is attendee and was booked via assistant
+    const userMeetings = response.data.items?.filter(event => 
+      event.attendees?.some(attendee => 
+        attendee.email === userEmail && attendee.responseStatus !== 'declined'
+      ) &&
+      event.description?.includes('Booked via Hassaan\'s assistant')
+    ) || [];
+
+    if (userMeetings.length === 0) {
+      return 'User has no upcoming meetings booked through the assistant.';
+    }
+
+    // Format the events for the conversational context
+    const formattedEvents = userMeetings.map(event => {
+      const startTime = event.start?.dateTime ? new Date(event.start.dateTime) : null;
+      const timeStr = startTime ? startTime.toLocaleString('en-US', { 
+        weekday: 'long', 
+        month: 'short', 
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/Los_Angeles'
+      }) : 'Unknown time';
+      
+      return `- ${event.summary} on ${timeStr} (Event ID: ${event.id})`;
+    }).join('\n');
+
+    return `User's upcoming meetings:\n${formattedEvents}`;
+  } catch (error) {
+    console.error('Error fetching user events:', error);
+    return 'Unable to fetch user events';
+  }
+}
+
 // Helper function to fetch calendar availability
 async function fetchAvailability(timezone: string): Promise<string> {
   try {
@@ -85,8 +147,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // --- Fetch availability and build context ---
+    // --- Fetch availability and user events ---
     const availability = await fetchAvailability(_timezone);
+    const userEvents = _email ? await fetchUserEvents(_email) : 'No user email provided';
     
     // --- Minimal payload to isolate auth/IDs (matches your working curl shape) ---
     const origin = process.env.NODE_ENV === 'production' 
@@ -118,7 +181,20 @@ When a user wants to book a meeting, use this tool call:
   }
 }
 
-When the user is done, use this tool call:
+When the user wants to reschedule an existing meeting, use this tool call:
+{
+  "type": "conversation.tool_call",
+  "tool_call_id": "tool_call_" + timestamp,
+  "tool": {
+    "name": "reschedule_meeting",
+    "arguments": {
+      "userEmail": "${_email}",
+      "newStartTime": "the new time they requested (ISO format)",
+      "reason": "User requested reschedule"
+    }
+  }
+}
+
 {
   "type": "conversation.tool_call", 
   "tool_call_id": "tool_call_" + timestamp,
@@ -130,7 +206,16 @@ When the user is done, use this tool call:
   }
 }
 
-User's email: ${_email}. Timezone: ${_timezone}. All meetings are 30 minutes. ${availability}`,
+User's email: ${_email}. Timezone: ${_timezone}. All meetings are 30 minutes.
+
+IMPORTANT BOOKING RULES:
+- Users can only have ONE active meeting at a time
+- If user already has an upcoming meeting, offer to reschedule it instead of booking a new one
+- Always check the user's existing meetings before offering to book a new one
+
+${userEvents}
+
+Available times for new bookings: ${availability}`,
       callback_url: `${origin}/api/tavus/events`, // Keep callback for system events
     };
 
