@@ -11,7 +11,7 @@ export const useCVICall = (): {
 
 	const joinCall = useCallback(
 		({ url }: { url: string }) => {
-			
+
 			if (!url || typeof url !== 'string') {
 				return;
 			}
@@ -20,7 +20,6 @@ export const useCVICall = (): {
 				return;
 			}
 			
-			// Add error handling for the join call
 			daily.join({
 				url: url,
 				inputSettings: {
@@ -31,7 +30,7 @@ export const useCVICall = (): {
 					},
 				},
 			}).catch((error) => {
-				// Handle join error silently or with user-friendly message
+
 			});
 		},
 		[daily]
