@@ -27,7 +27,7 @@ export async function GET() {
       expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
       message: isExpired ? 'Token expired - re-authentication needed' : 'Google OAuth connected and active with auto-refresh'
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({
       connected: false,
       error: error.message,

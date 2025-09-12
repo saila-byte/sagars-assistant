@@ -39,7 +39,7 @@ export async function GET() {
       })),
       currentCalendarId: process.env.HASSAAN_CALENDAR_ID || 'primary'
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ 
       error: error.message,
       details: error.toString()
