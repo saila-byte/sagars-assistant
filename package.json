@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
+    "build:no-check": "TSC_NONPOLLING_WATCHER=1 next build --turbopack",
     "start": "next start",
     "lint": "eslint"
   },
