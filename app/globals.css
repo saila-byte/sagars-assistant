@@ -11,6 +11,57 @@
 }
 
 :root {
+  --color-black: #000;
+  --color-white: #fff;
+  --spacing: .25rem;
+  --container-md: 28rem;
+  --container-2xl: 42rem;
+  --container-5xl: 64rem;
+  --text-xs: .75rem;
+  --text-xs--line-height: calc(1 / .75);
+  --text-sm: .875rem;
+  --text-sm--line-height: calc(1.25 / .875);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+  --text-6xl: 3.75rem;
+  --text-6xl--line-height: 1;
+  --text-7xl: 4.5rem;
+  --text-7xl--line-height: 1;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --tracking-wide: .025em;
+  --radius-lg: .5rem;
+  --radius-xl: .75rem;
+  --radius-2xl: 1rem;
+  --drop-shadow-lg: 0 4px 4px rgba(0, 0, 0, .15);
+  --animate-spin: spin 1s linear infinite;
+  --blur-sm: 8px;
+  --aspect-video: 16 / 9;
+  --default-transition-duration: .15s;
+  --default-transition-timing-function: cubic-bezier(.4, 0, .2, 1);
+  --default-font-family: "PerfectlyNineties", "JetBrains Mono", "Courier New", monospace;
+  --default-mono-font-family: "PerfectlyNineties", "JetBrains Mono", "Courier New", monospace;
+  --color-red-100: lab(92.243% 10.2865 3.83865);
+  --color-red-200: lab(86.017% 19.8815 7.75869);
+  --color-red-600: lab(48.4493% 77.4328 61.5452);
+  --color-red-700: lab(40.4273% 67.2623 53.7441);
+  --color-blue-50: lab(96.492% -1.14644 -5.11479);
+  --color-blue-100: lab(92.0301% -2.24757 -11.6453);
+  --color-blue-200: lab(86.15% -4.04379 -21.0797);
+  --color-blue-500: lab(54.1736% 13.3369 -74.6839);
+  --color-blue-700: lab(36.9089% 35.0961 -85.6872);
+  --color-blue-800: lab(30.2514% 27.7853 -70.2699);
+  --color-gray-100: lab(96.1596% -.0823438 -1.13575);
+  --color-zinc-50: lab(98.26% 0 0);
+  --color-zinc-100: lab(96.1634% .0993311 -.364041);
+  --color-zinc-200: lab(90.6853% .399232 -1.45452);
+  --color-zinc-300: lab(84.9837% .601262 -2.17986);
+  --color-zinc-400: lab(65.6464% 1.53497 -5.42429);
+  --color-zinc-500: lab(47.8878% 1.65477 -5.77283);
+  --color-zinc-600: lab(35.1166% 1.78212 -6.1173);
+  --color-zinc-700: lab(26.8019% 1.35387 -4.68303);
+  --color-zinc-800: lab(15.7305% .613764 -2.16959);
   --terminal-bg: rgba(255, 255, 255, 0.9);
   --terminal-green: #FF6810;
   --terminal-green-dim: #e55a0e;
@@ -39,7 +90,7 @@
 
 body {
   background: var(--terminal-bg);
-  background-image: url('/background.png');
+  background-image: url('https://cdn.prod.website-files.com/68a3622d17312a5dc16e5cc6/68c2a09e4c1562667849c15e_hero-bg%20v2.svg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -57,9 +108,9 @@ body {
 /* Retro terminal effects */
 .terminal-glow {
   box-shadow: 
-    0 0 10px var(--terminal-green),
-    0 0 20px var(--terminal-green),
-    0 0 30px var(--terminal-green);
+    0 0 10px #FF6183,
+    0 0 20px #FF6183,
+    0 0 30px #FF6183;
 }
 
 .terminal-border {
@@ -81,7 +132,7 @@ body {
 .terminal-button:hover {
   background: var(--terminal-green);
   color: var(--terminal-bg);
-  box-shadow: 0 0 15px var(--terminal-green);
+  box-shadow: 0 0 15px #FF6183;
 }
 
 .terminal-input {
@@ -137,7 +188,7 @@ body {
   border-radius: var(--radius-medium);
   border-width: var(--stroke-border-width);
   padding: 32px;
-  background: #FF9EB2;
+  background: #FF6183;
   border-top: 1.34px solid var(--color-scheme-1-border);
   box-shadow: 6px 6px 0px 0px var(--color-scheme-1-border);
   display: flex;
@@ -190,4 +241,78 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--terminal-green-bright);
+}
+
+/* Button wrapper and animation styles */
+.button-wrapper {
+  display: inline-block;
+}
+
+.button {
+  position: relative;
+  display: inline-block;
+  padding: 8px 16px;
+  background: #FF6183;
+  color: var(--terminal-bg);
+  text-decoration: none;
+  border: 2px solid var(--color-scheme-1-border);
+  box-shadow: 5px 5px 0px 0px var(--color-scheme-1-border);
+  transform: translate3d(5px, 5px, 0px) scale3d(1, 1, 1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skew(0deg, 0deg);
+  transform-style: preserve-3d;
+  transition: all 0.2s ease;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.button:hover {
+  transform: translate3d(0px, 0px, 0px) scale3d(1, 1, 1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skew(0deg, 0deg);
+  box-shadow: 2px 2px 0px 0px var(--color-scheme-1-border);
+  opacity: 1;
+}
+
+.button:active {
+  transform: translate3d(2px, 2px, 0px) scale3d(0.98, 0.98, 1) rotateX(0deg) rotateY(0deg) rotateZ(0deg) skew(0deg, 0deg);
+  box-shadow: 1px 1px 0px 0px var(--color-scheme-1-border);
+}
+
+.btn_text {
+  position: relative;
+  z-index: 2;
+  display: block;
+}
+
+.btn_texture {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.button:hover .btn_texture {
+  opacity: 1;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.content-container {
+  background-color: rgba(0, 0, 0, 0);
 }

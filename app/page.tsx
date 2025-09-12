@@ -97,7 +97,7 @@ function safeStringify(v: any) {
 export default function Page() {
   const duration = 30; // Only 30-minute meetings
 
-  const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('haircheck');
+  const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('landing');
   const [email, setEmail] = useState('ashish@tavus.io');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
   const [errors, setErrors] = useState<string | null>(null);
@@ -401,6 +401,11 @@ export default function Page() {
       prepareConversation();
     }
   }, [avReady, conversationUrl, conversationPreparing, loadingSlots, slots, prepareConversation]);
+
+  // -------- Slot selection handler --------
+  function handleSlotSelect(slot: { start_time: string }) {
+    setSelectedSlot(slot);
+  }
 
   // -------- Manual confirm button (fallback) --------
   async function confirmAndBook(args?: {
@@ -712,89 +717,176 @@ export default function Page() {
   });
 
   return (
-    <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
+    <div className="min-h-screen" style={{ color: 'var(--terminal-text)' }}>
 
       {step === 'landing' && (
-        <div className="max-w-3xl mx-auto px-6 py-12">
-          <div className="mb-8">
-            <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Hassaan</h2>
-            <p className="text-sm terminal-text">
-              I'm Hassaan's assistant. I can schedule a 30-minute meeting for you.
-              Tell me your email below to get started.
-            </p>
+        <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
+          <div className="mb-6 w-full">
+            <div className="flex items-start gap-3 mb-4 -ml-8">
+              <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+            </div>
+            <div className="text-center">
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Hassaan</h2>
+              <p className="text-sm terminal-text">
+                I'm Hassaan's assistant. I can schedule a 30-minute meeting for you.
+                Tell me your email below to get started.
+              </p>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 items-start">
-            <div className="p-6 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm mb-2" style={{ color: 'black' }}>Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                    className="w-full terminal-input rounded"
-                />
-                {remembered && !email && (
-                    <button onClick={() => setEmail(remembered)} className="text-xs underline terminal-text mt-1">
-                    Use last email: {remembered}
-                  </button>
-                )}
+          <div className="w-full max-w-4xl">
+            {/* Video Container with Overlay Form */}
+            <div 
+              className="aspect-video overflow-hidden relative"
+              style={{
+                '--plyr-color-main': 'white',
+                '--plyr-tab-focus-color': 'transparent',
+                '--plyr-video-control-color-hover': 'black',
+                '--plyr-control-icon-size': '1.5em',
+                '--plyr-range-thumb-height': '0px',
+                '--plyr-range-track-height': '0.6em',
+                '--themes--background': 'var(--primatives--pc-plastic-1)',
+                '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                '--themes--text': 'var(--primatives--terminal-black)',
+                '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                '--primatives--pc-plastic-3': '#b9ae9c',
+                '--primatives--static-white': 'white',
+                '--primatives--pc-plastic-2': '#e3dcd1',
+                '--primatives--bubbletech-4': '#ff6183',
+                '--primatives--pc-plastic-1': '#f3eee7',
+                '--primatives--terminal-black': '#140206',
+                '--themes--border': 'var(--primatives--terminal-black)',
+                '--themes--foreground': 'var(--primatives--static-white)',
+                fontFamily: 'var(--_typography---primary-font-family)',
+                color: 'var(--themes--text)',
+                fontSize: '1rem',
+                lineHeight: '1.5',
+                WebkitFontSmoothing: 'antialiased',
+                textRendering: 'optimizeLegibility',
+                boxSizing: 'border-box',
+                border: '1px solid var(--themes--border)',
+                backgroundColor: 'var(--primatives--pc-plastic-2)',
+                flexFlow: 'column',
+                width: '100%',
+                paddingBottom: '.18vw',
+                display: 'flex',
+                position: 'relative',
+                boxShadow: '3.94px 5.91px #000',
+                paddingLeft: '3px',
+                paddingRight: '3px'
+              } as React.CSSProperties}
+            >
+              <video
+                className="w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+              >
+                <source src="https://cdn.replica.tavus.io/20426/12dfe205.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+              
+              {/* Form overlay on video */}
+              <div className="absolute inset-0 flex items-end justify-center pb-16">
+                <div className="p-4 rounded-lg w-64 max-w-full mx-4" style={{ fontFamily: 'var(--default-font-family)' }}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs mb-2 text-white font-semibold drop-shadow-lg" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--text-xs)', lineHeight: 'var(--text-xs--line-height)', opacity: 0.8 }}>Email</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@company.com"
+                        className="w-full px-2 py-1 text-white placeholder-white placeholder-opacity-70 focus:ring-2 focus:ring-white focus:ring-opacity-50 focus:border-transparent"
+                        style={{ 
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 'var(--text-xs)', 
+                          lineHeight: 'var(--text-xs--line-height)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          opacity: 0.8,
+                          transition: 'var(--default-transition-duration) var(--default-transition-timing-function)'
+                        }}
+                      />
+                        {remembered && !email && (
+                          <div className="button-wrapper mt-1">
+                            <button onClick={() => setEmail(remembered)} className="button" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--text-xs)', lineHeight: 'var(--text-xs--line-height)', opacity: 0.8 }}>
+                              <div className="btn_text">Use last email: {remembered}</div>
+                              <div className="btn_texture"></div>
+                            </button>
+                          </div>
+                        )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-2 text-white font-semibold drop-shadow-lg" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--text-xs)', lineHeight: 'var(--text-xs--line-height)', opacity: 0.8 }}>Timezone</label>
+                      <select
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full px-2 py-1 text-white focus:ring-2 focus:ring-white focus:ring-opacity-50 focus:border-transparent"
+                        style={{ 
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 'var(--text-xs)', 
+                          lineHeight: 'var(--text-xs--line-height)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          opacity: 0.8,
+                          transition: 'var(--default-transition-duration) var(--default-transition-timing-function)'
+                        }}
+                      >
+                        {TIMEZONE_OPTIONS.map((tz) => (
+                          <option key={tz.value} value={tz.value} className="text-black">
+                            {tz.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {errors && <div className="text-sm text-red-200 drop-shadow-lg">{errors}</div>}
+
+                      <div className="button-wrapper w-full">
+                        <button
+                          onClick={handleStart}
+                          className="button w-full"
+                          style={{ 
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: 'var(--text-xs)', 
+                            lineHeight: 'var(--text-xs--line-height)',
+                            opacity: 0.8
+                          }}
+                        >
+                          <div className="btn_text">Continue</div>
+                          <div className="btn_texture"></div>
+                        </button>
+                      </div>
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm mb-2" style={{ color: 'black' }}>Timezone</label>
-                  <select
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full terminal-input rounded"
-                  >
-                    {TIMEZONE_OPTIONS.map((tz) => (
-                      <option key={tz.value} value={tz.value}>
-                        {tz.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {errors && <div className="text-sm terminal-error">{errors}</div>}
-
-                <button
-                  onClick={handleStart}
-                  className="w-full mt-2 terminal-button px-4 py-3"
-                >
-                  Continue
-                </button>
               </div>
             </div>
 
-            <div className="p-6 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
-              <h3 className="mb-2" style={{ color: 'black' }}>What happens next</h3>
-              <ul className="text-sm terminal-text list-disc pl-5 space-y-1">
-                <li>We'll test your camera and mic.</li>
-                <li>Join a quick AI-powered assistant call.</li>
-                <li>I'll check availability and confirm a time.</li>
-                <li>You'll get a calendar invite by email.</li>
-              </ul>
-              <div className="mt-4 text-xs terminal-text">
-                <div>Tip: All meetings are 30 minutes in duration.</div>
-                <div className="mt-1">
-                  Times will be shown in: <span className="terminal-green">
-                    {TIMEZONE_OPTIONS.find(tz => tz.value === timezone)?.label || timezone}
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
       {step === 'haircheck' && (
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Meet Hassaan's AI Assistant</h2>
+        <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
+          <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
+          <div className="mb-6 w-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-3 -ml-8">
+                <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+              </div>
+              <div className="button-wrapper">
+                <button onClick={() => {
+                  setStep('landing');
+                  setConversationPreparing(false);
+                }} className="button">
+                  <div className="btn_text">← Back</div>
+                  <div className="btn_texture"></div>
+                </button>
+              </div>
+            </div>
+            <div className="text-center mt-4">
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Meet Hassaan's AI Assistant</h2>
               <p className="text-sm terminal-text">
                 {!mediaStream 
                   ? 'Initializing camera & microphone...' 
@@ -808,89 +900,207 @@ export default function Page() {
                 }
               </p>
             </div>
-            <button onClick={() => {
-              setStep('landing');
-              setConversationPreparing(false);
-            }} className="text-sm underline terminal-text">← Back</button>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 items-start">
-            <div className="md:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)', boxShadow: '6px 6px 0px 0px var(--color-scheme-1-border)' }}>
-              <div className="aspect-video terminal-border rounded overflow-hidden flex items-center justify-center" style={{ background: 'var(--terminal-bg)' }}>
-                <video ref={videoRef} className="w-full h-full object-cover" muted />
-              </div>
-
-              <div className="mt-4 flex gap-3">
-                {!mediaStream ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 text-sm terminal-text">
-                      <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
-                      Requesting camera & microphone access...
-                    </div>
+          <div className="w-full max-w-4xl">
+            <div 
+              className="aspect-video overflow-hidden relative"
+              style={{
+                '--plyr-color-main': 'white',
+                '--plyr-tab-focus-color': 'transparent',
+                '--plyr-video-control-color-hover': 'black',
+                '--plyr-control-icon-size': '1.5em',
+                '--plyr-range-thumb-height': '0px',
+                '--plyr-range-track-height': '0.6em',
+                '--themes--background': 'var(--primatives--pc-plastic-1)',
+                '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                '--themes--text': 'var(--primatives--terminal-black)',
+                '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                '--primatives--pc-plastic-3': '#b9ae9c',
+                '--primatives--static-white': 'white',
+                '--primatives--pc-plastic-2': '#e3dcd1',
+                '--primatives--bubbletech-4': '#ff6183',
+                '--primatives--pc-plastic-1': '#f3eee7',
+                '--primatives--terminal-black': '#140206',
+                '--themes--border': 'var(--primatives--terminal-black)',
+                '--themes--foreground': 'var(--primatives--static-white)',
+                fontFamily: 'var(--_typography---primary-font-family)',
+                color: 'var(--themes--text)',
+                fontSize: '1rem',
+                lineHeight: '1.5',
+                WebkitFontSmoothing: 'antialiased',
+                textRendering: 'optimizeLegibility',
+                boxSizing: 'border-box',
+                border: '1px solid var(--themes--border)',
+                backgroundColor: 'var(--primatives--pc-plastic-2)',
+                flexFlow: 'column',
+                width: '100%',
+                paddingBottom: '.18vw',
+                display: 'flex',
+                position: 'relative',
+                boxShadow: '3.94px 5.91px #000',
+                paddingLeft: '3px',
+                paddingRight: '3px'
+              } as React.CSSProperties}
+            >
+              <video ref={videoRef} className="w-full h-full object-cover" muted />
+              
+              {!mediaStream ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin w-8 h-8 border-4 terminal-border border-t-terminal-green rounded-full mx-auto mb-4"></div>
+                    <p className="text-sm terminal-text">Requesting camera & microphone access...</p>
                     {errors && (
-                      <button onClick={requestAV} className="terminal-button px-4 py-2 text-sm">
-                        Try Again
-                      </button>
+                      <div className="mt-4">
+                        <div className="button-wrapper">
+                          <button onClick={requestAV} className="button">
+                            <div className="btn_text">Try Again</div>
+                            <div className="btn_texture"></div>
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
-                ) : (
-                  <>
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-end justify-center pb-16">
+                  <div className="button-wrapper">
                     <button 
                       onClick={goToCall} 
                       disabled={conversationPreparing}
-                      className="terminal-button px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="button disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {conversationPreparing ? (
-                        <div className="flex items-center gap-2">
-                          <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
-                          Preparing...
-                        </div>
-                      ) : conversationUrl ? (
-                        'Join Call'
-                      ) : (
-                        'Join Call'
-                      )}
+                      <div className="btn_text">
+                        {conversationPreparing ? (
+                          <div className="flex items-center gap-2">
+                            <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
+                            Preparing...
+                          </div>
+                        ) : conversationUrl ? (
+                          'Join Call'
+                        ) : (
+                          'Join Call'
+                        )}
+                      </div>
+                      <div className="btn_texture"></div>
                     </button>
-                  </>
-                )}
-              </div>
-              {errors && <div className="mt-3 text-sm terminal-error">{errors}</div>}
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div className="p-4 terminal-border space-y-3 content-container">
-              <div>
-                <div className="text-xs uppercase tracking-wide terminal-text mb-1">You</div>
-                <div className="text-sm terminal-green">{email}</div>
-                <div className="text-xs terminal-text">{duration}-minute session</div>
-                <div className="text-xs terminal-text mt-1">
-                  Timezone: {TIMEZONE_OPTIONS.find(tz => tz.value === timezone)?.label || timezone}
-              </div>
-              </div>
-              <div className="text-xs terminal-text">One assistant persona is used for all durations.</div>
-            </div>
+            {errors && <div className="mt-3 text-sm terminal-error text-center">{errors}</div>}
+          </div>
           </div>
         </div>
       )}
 
       {step === 'call' && (
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Scheduling Call</h2>
+        <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
+          <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
+          <div className="mb-6 w-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-3 -ml-8">
+                <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+              </div>
+              <div className="button-wrapper">
+                <button onClick={() => setStep('haircheck')} className="button">
+                  <div className="btn_text">← Back</div>
+                  <div className="btn_texture"></div>
+                </button>
+              </div>
+            </div>
+            <div className="text-center mt-4">
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Scheduling Call</h2>
               <p className="text-sm terminal-text">Book your meeting with Hassaan's AI assistant</p>
             </div>
-            <button onClick={() => setStep('haircheck')} className="text-sm underline terminal-text">← Back</button>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 items-start">
-            {/* Left: Tavus */}
-            <div className="md:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)', boxShadow: '6px 6px 0px 0px var(--color-scheme-1-border)' }}>
+          <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
               {conversationUrl ? (
-                <div className="aspect-video terminal-border rounded overflow-hidden" style={{ background: 'var(--terminal-bg)' }}>
+                <div 
+                  className="aspect-video overflow-hidden relative"
+                  style={{
+                    '--plyr-color-main': 'white',
+                    '--plyr-tab-focus-color': 'transparent',
+                    '--plyr-video-control-color-hover': 'black',
+                    '--plyr-control-icon-size': '1.5em',
+                    '--plyr-range-thumb-height': '0px',
+                    '--plyr-range-track-height': '0.6em',
+                    '--themes--background': 'var(--primatives--pc-plastic-1)',
+                    '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                    '--themes--text': 'var(--primatives--terminal-black)',
+                    '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                    '--primatives--pc-plastic-3': '#b9ae9c',
+                    '--primatives--static-white': 'white',
+                    '--primatives--pc-plastic-2': '#e3dcd1',
+                    '--primatives--bubbletech-4': '#ff6183',
+                    '--primatives--pc-plastic-1': '#f3eee7',
+                    '--primatives--terminal-black': '#140206',
+                    '--themes--border': 'var(--primatives--terminal-black)',
+                    '--themes--foreground': 'var(--primatives--static-white)',
+                    fontFamily: 'var(--_typography---primary-font-family)',
+                    color: 'var(--themes--text)',
+                    fontSize: '1rem',
+                    lineHeight: '1.5',
+                    WebkitFontSmoothing: 'antialiased',
+                    textRendering: 'optimizeLegibility',
+                    boxSizing: 'border-box',
+                    border: '1px solid var(--themes--border)',
+                    backgroundColor: '#f3eee7',
+                    flexFlow: 'column',
+                    width: '100%',
+                    paddingBottom: '.18vw',
+                    display: 'flex',
+                    position: 'relative',
+                    boxShadow: '3.94px 5.91px #000',
+                    paddingLeft: '3px',
+                    paddingRight: '3px'
+                  } as React.CSSProperties}
+                >
                   <Conversation conversationUrl={conversationUrl} onLeave={() => setStep('landing')} />
                 </div>
               ) : (
-                <div className="aspect-video terminal-border rounded overflow-hidden bg-black/5 flex items-center justify-center" style={{ background: 'var(--terminal-bg)' }}>
+                <div 
+                  className="aspect-video overflow-hidden relative bg-black/5 flex items-center justify-center"
+                  style={{
+                    '--plyr-color-main': 'white',
+                    '--plyr-tab-focus-color': 'transparent',
+                    '--plyr-video-control-color-hover': 'black',
+                    '--plyr-control-icon-size': '1.5em',
+                    '--plyr-range-thumb-height': '0px',
+                    '--plyr-range-track-height': '0.6em',
+                    '--themes--background': 'var(--primatives--pc-plastic-1)',
+                    '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                    '--themes--text': 'var(--primatives--terminal-black)',
+                    '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                    '--primatives--pc-plastic-3': '#b9ae9c',
+                    '--primatives--static-white': 'white',
+                    '--primatives--pc-plastic-2': '#e3dcd1',
+                    '--primatives--bubbletech-4': '#ff6183',
+                    '--primatives--pc-plastic-1': '#f3eee7',
+                    '--primatives--terminal-black': '#140206',
+                    '--themes--border': 'var(--primatives--terminal-black)',
+                    '--themes--foreground': 'var(--primatives--static-white)',
+                    fontFamily: 'var(--_typography---primary-font-family)',
+                    color: 'var(--themes--text)',
+                    fontSize: '1rem',
+                    lineHeight: '1.5',
+                    WebkitFontSmoothing: 'antialiased',
+                    textRendering: 'optimizeLegibility',
+                    boxSizing: 'border-box',
+                    border: '1px solid var(--themes--border)',
+                    backgroundColor: '#f3eee7',
+                    flexFlow: 'column',
+                    width: '100%',
+                    paddingBottom: '.18vw',
+                    display: 'flex',
+                    position: 'relative',
+                    boxShadow: '3.94px 5.91px #000',
+                    paddingLeft: '3px',
+                    paddingRight: '3px'
+                  } as React.CSSProperties}
+                >
                   <div className="text-center">
                     <div className="text-6xl mb-3">🎥</div>
                     <div>Loading assistant…</div>
@@ -898,56 +1108,114 @@ export default function Page() {
                   </div>
                 </div>
               )}
-              {toolError && <div className="mt-3 text-sm text-red-600">{toolError}</div>}
+              {toolError && <div className="mt-3 text-sm text-red-600 text-center">{toolError}</div>}
             </div>
-
-            {/* Right: availability + optional manual booking */}
-            <AvailabilitySidebar
-              slots={slots}
-              loadingSlots={loadingSlots}
-              selectedSlot={selectedSlot}
-              onSlotSelect={(slot) => {
-                setSelectedSlot(slot);
-              }}
-              onBook={confirmAndBook}
-              booking={booking}
-              errors={errors}
-              duration={duration}
-            />
+            
+            <div className="lg:col-span-1">
+              <div 
+                className="h-full overflow-hidden relative mt-3"
+                style={{
+                  '--plyr-color-main': 'white',
+                  '--plyr-tab-focus-color': 'transparent',
+                  '--plyr-video-control-color-hover': 'black',
+                  '--plyr-control-icon-size': '1.5em',
+                  '--plyr-range-thumb-height': '0px',
+                  '--plyr-range-track-height': '0.6em',
+                  '--themes--background': 'var(--primatives--pc-plastic-1)',
+                  '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                  '--themes--text': 'var(--primatives--terminal-black)',
+                  '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                  '--primatives--pc-plastic-3': '#b9ae9c',
+                  '--primatives--static-white': 'white',
+                  '--primatives--pc-plastic-2': '#e3dcd1',
+                  '--primatives--bubbletech-4': '#ff6183',
+                  '--primatives--pc-plastic-1': '#f3eee7',
+                  '--primatives--terminal-black': '#140206',
+                  '--themes--border': 'var(--primatives--terminal-black)',
+                  '--themes--foreground': 'var(--primatives--static-white)',
+                  fontFamily: 'var(--_typography---primary-font-family)',
+                  color: 'var(--themes--text)',
+                  fontSize: '1rem',
+                  lineHeight: '1.5',
+                  WebkitFontSmoothing: 'antialiased',
+                  textRendering: 'optimizeLegibility',
+                  boxSizing: 'border-box',
+                  border: 'none',
+                  backgroundColor: '#f3eee7',
+                  flexFlow: 'column',
+                  width: '100%',
+                  display: 'flex',
+                  position: 'relative',
+                  paddingLeft: '3px',
+                  paddingRight: '3px'
+                } as React.CSSProperties}
+              >
+                <AvailabilitySidebar 
+                  slots={slots} 
+                  loadingSlots={loadingSlots}
+                  selectedSlot={selectedSlot}
+                  onSlotSelect={handleSlotSelect}
+                  onBook={() => confirmAndBook({ 
+                    email, 
+                    start_time: selectedSlot?.start_time, 
+                    duration: 30, 
+                    timezone 
+                  })}
+                  booking={booking}
+                  errors={toolError}
+                  duration={30}
+                />
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       )}
 
       {step === 'confirm' && (
-        <div className="max-w-2xl mx-auto px-6 py-20 text-center">
-          <div className="text-7xl mb-4">✅</div>
-          <h2 className="text-2xl mb-2" style={{ color: 'black' }}>You're all set!</h2>
-          <p className="terminal-text">
-            We've scheduled your {duration}-minute meeting with Hassaan. A confirmation
-            email will arrive at <span className="terminal-accent">{email}</span>.
-          </p>
-          {bookingInfo?.htmlLink && (
-            <p className="text-xs terminal-text mt-2">
-              Calendar link:{' '}
-              <a className="underline terminal-accent" href={bookingInfo.htmlLink} target="_blank" rel="noreferrer">
-                {bookingInfo.htmlLink}
-              </a>
-            </p>
-          )}
-          <div className="mt-6 flex items-center justify-center gap-3">
-            <a
-              href="/"
-              className="terminal-button px-4 py-2 text-sm"
-              onClick={(e) => {
-                e.preventDefault();
-                setStep('landing');
-              }}
-            >
-              Book another
-            </a>
-            <button className="terminal-button px-4 py-2 text-sm" onClick={() => window.print()}>
-              Print
-            </button>
+        <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
+          <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
+          <div className="mb-6 w-full">
+            <div className="flex items-start gap-3 mb-4 -ml-8">
+              <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+            </div>
+            <div className="text-center">
+              <div className="text-7xl mb-4">✅</div>
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>You're all set!</h2>
+              <p className="terminal-text">
+                We've scheduled your {duration}-minute meeting with Hassaan. A confirmation
+                email will arrive at <span className="terminal-accent">{email}</span>.
+              </p>
+              {bookingInfo?.htmlLink && (
+                <p className="text-xs terminal-text mt-2">
+                  Calendar link:{' '}
+                  <a className="underline terminal-accent" href={bookingInfo.htmlLink} target="_blank" rel="noreferrer">
+                    {bookingInfo.htmlLink}
+                  </a>
+                </p>
+              )}
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <div className="button-wrapper">
+                  <button
+                    className="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setStep('landing');
+                    }}
+                  >
+                    <div className="btn_text">Book another</div>
+                    <div className="btn_texture"></div>
+                  </button>
+                </div>
+                <div className="button-wrapper">
+                  <button className="button" onClick={() => window.print()}>
+                    <div className="btn_text">Print</div>
+                    <div className="btn_texture"></div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       )}
