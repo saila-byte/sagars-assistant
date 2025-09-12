@@ -140,8 +140,8 @@ function safeStringify(v: unknown) {
 export default function Page() {
   const duration = 30; // Only 30-minute meetings
 
-  const [step, setStep] = useState<'landing' | 'haircheck' | 'call'>('haircheck');
-  const [email, setEmail] = useState('ashish@tavus.io');
+  const [step, setStep] = useState<'landing' | 'haircheck' | 'call'>('landing');
+  const [email, setEmail] = useState('');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
   const [errors, setErrors] = useState<string | null>(null);
   const [remembered, setRemembered] = useState<string | null>(null);
