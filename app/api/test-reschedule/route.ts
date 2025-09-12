@@ -36,11 +36,11 @@ export async function GET(req: Request) {
       status: rescheduleResponse.status
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('🧪 [TEST] Error:', error);
     return NextResponse.json({ 
-      error: error.message || 'Unknown error',
-      details: error.toString()
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: String(error)
     }, { status: 500 });
   }
 }

@@ -28,8 +28,7 @@ export function AvailabilitySidebar({
   onSlotSelect,
   onBook,
   booking,
-  errors,
-  duration
+  errors
 }: AvailabilitySidebarProps) {
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 

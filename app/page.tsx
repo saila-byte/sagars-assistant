@@ -26,109 +26,109 @@ const TIMEZONE_OPTIONS = [
   { value: 'Pacific/Auckland', label: 'NZST (Auckland)' },
 ];
 
-function extractToolCallPayload(data: any): ToolCallMsg | null {
-  if (!data || typeof data !== 'object') return null;
+// function extractToolCallPayload(data: unknown): ToolCallMsg | null {
+//   if (!data || typeof data !== 'object') return null;
 
-  // Check for direct tool call format
-  if (data.type === 'conversation.tool_call' && data.tool) {
-    return {
-      type: data.type,
-      tool_call_id: data.tool_call_id,
-      tool: data.tool
-    };
-  }
+//   // Check for direct tool call format
+//   if (data.type === 'conversation.tool_call' && data.tool) {
+//     return {
+//       type: data.type,
+//       tool_call_id: data.tool_call_id,
+//       tool: data.tool
+//     };
+//   }
 
-  // Check for nested tool call format
-  if (data.message_type === 'conversation' && data.event_type === 'conversation.tool_call') {
-    return data.properties || null;
-  }
+//   // Check for nested tool call format
+//   if (data.message_type === 'conversation' && data.event_type === 'conversation.tool_call') {
+//     return data.properties || null;
+//   }
 
-  return null;
-}
+//   return null;
+// }
 
 type Slot = { start_time: string; scheduling_url: string | null };
 
-type ToolCallMsg = {
-  type?: string;
-  event_type?: string;
-  message_type?: string;
-  tool_call_id?: string;
-  tool?: { name?: string; arguments?: string | Record<string, any> };
-  name?: string;
-  arguments?: unknown;
-};
+// type ToolCallMsg = {
+//   type?: string;
+//   event_type?: string;
+//   message_type?: string;
+//   tool_call_id?: string;
+//   tool?: { name?: string; arguments?: string | Record<string, unknown> };
+//   name?: string;
+//   arguments?: unknown;
+// };
 
-type ToolResult =
-  | { ok: true; start_time?: string; htmlLink?: string; hangoutLink?: string; originalEvent?: any; newEvent?: any }
-  | { ok: false; error: string };
+// type ToolResult =
+//   | { ok: true; start_time?: string; htmlLink?: string; hangoutLink?: string; originalEvent?: Record<string, unknown>; newEvent?: Record<string, unknown> }
+//   | { ok: false; error: string };
 
-function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: string | undefined, result: ToolResult) {
-  if (!conversationUrl || !tool_call_id) {
-    return;
-  }
-  try {
-    const targetOrigin = new URL(conversationUrl).origin;
-    const iframes = Array.from(document.getElementsByTagName('iframe'));
-    const target = iframes.find((f) => {
-      try {
-        const src = f.getAttribute('src') || '';
-        return src.startsWith(targetOrigin);
-      } catch {
-        return false;
-      }
-    });
-    target?.contentWindow?.postMessage(
-      { type: 'conversation.tool_result', tool_call_id, result },
-      targetOrigin
-    );
-  } catch (e) {
-  }
-}
+// function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: string | undefined, result: ToolResult) {
+//   if (!conversationUrl || !tool_call_id) {
+//     return;
+//   }
+//   try {
+//     const targetOrigin = new URL(conversationUrl).origin;
+//     const iframes = Array.from(document.getElementsByTagName('iframe'));
+//     const target = iframes.find((f) => {
+//       try {
+//         const src = f.getAttribute('src') || '';
+//         return src.startsWith(targetOrigin);
+//       } catch {
+//         return false;
+//       }
+//     });
+//     target?.contentWindow?.postMessage(
+//       { type: 'conversation.tool_result', tool_call_id, result },
+//       targetOrigin
+//     );
+//   } catch (e) {
+//   }
+// }
 
-function sendEchoToTavus(conversationUrl: string | null, conversationId: string, message: string, modality: 'audio' | 'text' = 'text') {
-  if (!conversationUrl || !conversationId) {
-    return;
-  }
-  try {
-    const targetOrigin = new URL(conversationUrl).origin;
-    const iframes = Array.from(document.getElementsByTagName('iframe'));
-    const target = iframes.find((f) => {
-      try {
-        const src = f.getAttribute('src') || '';
-        return src.startsWith(targetOrigin);
-      } catch {
-        return false;
-      }
-    });
+// function sendEchoToTavus(conversationUrl: string | null, conversationId: string, message: string, modality: 'audio' | 'text' = 'text') {
+//   if (!conversationUrl || !conversationId) {
+//     return;
+//   }
+//   try {
+//     const targetOrigin = new URL(conversationUrl).origin;
+//     const iframes = Array.from(document.getElementsByTagName('iframe'));
+//     const target = iframes.find((f) => {
+//       try {
+//         const src = f.getAttribute('src') || '';
+//         return src.startsWith(targetOrigin);
+//       } catch {
+//         return false;
+//       }
+//     });
     
-    // First send interrupt to stop current speech
-    target?.contentWindow?.postMessage(
-      {
-        message_type: 'conversation',
-        event_type: 'conversation.interrupt',
-        conversation_id: conversationId
-      },
-      targetOrigin
-    );
+//     // First send interrupt to stop current speech
+//     target?.contentWindow?.postMessage(
+//       {
+//         message_type: 'conversation',
+//         event_type: 'conversation.interrupt',
+//         conversation_id: conversationId
+//       },
+//       targetOrigin
+//     );
     
-    // Then send the echo message using AppMessageEcho structure
-    target?.contentWindow?.postMessage(
-      {
-        message_type: 'conversation',
-        event_type: 'conversation.echo',
-        conversation_id: conversationId,
-        properties: {
-          modality: modality,
-          text: message
-        }
-      },
-      targetOrigin
-    );
-  } catch (e) {
-  }
-}
+//     // Then send the echo message using AppMessageEcho structure
+//     target?.contentWindow?.postMessage(
+//       {
+//         message_type: 'conversation',
+//         event_type: 'conversation.echo',
+//         conversation_id: conversationId,
+//         properties: {
+//           modality: modality,
+//           text: message
+//         }
+//       },
+//       targetOrigin
+//     );
+//   } catch (e) {
+//   }
+// }
 
-function safeStringify(v: any) {
+function safeStringify(v: unknown) {
   try {
     return JSON.stringify(v, null, 2);
   } catch {
@@ -157,19 +157,21 @@ export default function Page() {
   // Haircheck state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [micLevel, setMicLevel] = useState<number>(0);
+  const [, setMicLevel] = useState<number>(0);
+
+  
   const [avReady, setAvReady] = useState(false);
 
   // Tool-call / debug state
-  const [toolError, setToolError] = useState<string | null>(null);
-  const inFlightToolCalls = useRef<Set<string>>(new Set());
+  // const [toolError, setToolError] = useState<string | null>(null);
+  // const inFlightToolCalls = useRef<Set<string>>(new Set());
 
   // Debug panel state
   const [debugOpen, setDebugOpen] = useState(false);
-  const [logs, setLogs] = useState<{ ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: any }[]>([]);
+  const [logs, setLogs] = useState<{ ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: unknown }[]>([]);
   const [filterToolCalls, setFilterToolCalls] = useState(true);
 
-  const pushLog = useCallback((entry: { ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: any }) => {
+  const pushLog = useCallback((entry: { ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: unknown }) => {
     setLogs((prev) => {
       const next = [entry, ...prev];
       if (next.length > 50) next.length = 50;
@@ -184,12 +186,12 @@ export default function Page() {
     }).join('\n---\n');
     try {
       await navigator.clipboard.writeText(text || '(no logs)');
-    } catch (e) {
-    }
+  } catch {
+  }
   }, [logs]);
 
-  // Handle tool calls from Tavus using the built-in hooks
-  const handleTavusToolCall = useCallback(async (toolCall: any, conversationId: string) => {
+  // Initialize Tavus tool calls hook first
+  const tavusToolCalls = useTavusToolCalls(useCallback(async (toolCall: { name: string; arguments: unknown; tool_call_id: string }, conversationId: string) => {
     console.log('🔧 [TOOL_CALL] Received tool call via Tavus hooks:', { toolCall, conversationId });
     pushLog({ ts: Date.now(), origin: 'tavus-hooks', kind: 'message', note: 'tool_call', data: toolCall });
     
@@ -251,7 +253,6 @@ export default function Page() {
         
         // Extract attendee name from email (everything before @)
         const attendeeName = inviteeEmail.split('@')[0];
-        const meetingName = args.title || 'Meeting with Hassaan';
         
         // Format the time for the echo message
         const startTime = new Date(bookingData.booked_start_time);
@@ -374,10 +375,7 @@ export default function Page() {
         ok: true
       });
     }
-  }, [email, timezone]);
-
-  // Initialize Tavus tool calls hook
-  const tavusToolCalls = useTavusToolCalls(handleTavusToolCall);
+  }, [email, timezone, pushLog]));
 
   useEffect(() => {
     const last = localStorage.getItem('booking_last_email');
@@ -402,12 +400,11 @@ export default function Page() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       setMediaStream(stream);
       if (videoRef.current) {
-        // @ts-ignore
-        videoRef.current.srcObject = stream;
+        (videoRef.current as HTMLVideoElement & { srcObject: MediaStream | null }).srcObject = stream;
         await videoRef.current.play().catch(() => {});
       }
 
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
@@ -428,16 +425,16 @@ export default function Page() {
       tick();
 
       setAvReady(true);
-    } catch (e) {
+    } catch {
       setErrors("We couldn't access your camera/mic. Check permissions and try again.");
     }
   }, [mediaStream]);
 
-  function leaveAV() {
-    mediaStream?.getTracks().forEach((t) => t.stop());
-    setMediaStream(null);
-    setAvReady(false);
-  }
+  // function leaveAV() {
+  //   mediaStream?.getTracks().forEach((t) => t.stop());
+  //   setMediaStream(null);
+  //   setAvReady(false);
+  // }
 
   async function goToCall() {
     if (!avReady) {
@@ -554,8 +551,8 @@ export default function Page() {
       const data = await r.json();
       pushLog({ ts: Date.now(), origin: 'local', kind: r.ok && data?.ok ? 'info' : 'error', note: 'POST /api/book result', data });
       if (!r.ok || !data?.ok) throw new Error(data?.error || 'Booking failed');
-    } catch (e: any) {
-      const msg = e?.message || 'Could not book this time.';
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Could not book this time.';
       setErrors(msg);
       pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Booking error', data: msg });
     } finally {
@@ -564,148 +561,148 @@ export default function Page() {
   }
 
   // -------- Tool-call handler (VOICE-ONLY BOOKING) --------
-  const handleToolCall = useCallback(
-    async (msg: ToolCallMsg) => {
-      try {
+  // const handleToolCall = useCallback(
+  //   async (msg: ToolCallMsg) => {
+  //     try {
         
-        // Handle different message formats
-        let name: string | undefined;
-        let args: any;
-        let toolCallId: string | undefined;
+  //       // Handle different message formats
+  //       let name: string | undefined;
+  //       let args: unknown;
+  //       let toolCallId: string | undefined;
         
-        if (Array.isArray(msg) && msg.length > 0) {
-          // Format from system prompt: [{ "name": "update_calendar", "parameters": {...} }]
-          const toolCall = msg[0];
-          name = toolCall?.name;
-          args = toolCall?.parameters;
-          toolCallId = toolCall?.id || `tool_${Date.now()}`;
-        } else if (msg.tool) {
-          // Format: { tool: { name: "update_calendar", arguments: {...} } }
-          name = msg.tool.name;
-          args = msg.tool.arguments;
-          toolCallId = msg.tool_call_id;
-        } else {
-          // Format: { name: "update_calendar", arguments: {...} }
-          name = msg.name;
-          args = msg.arguments;
-          toolCallId = msg.tool_call_id;
-        }
+  //       if (Array.isArray(msg) && msg.length > 0) {
+  //         // Format from system prompt: [{ "name": "update_calendar", "parameters": {...} }]
+  //         const toolCall = msg[0];
+  //         name = toolCall?.name;
+  //         args = toolCall?.parameters;
+  //         toolCallId = toolCall?.id || `tool_${Date.now()}`;
+  //       } else if (msg.tool) {
+  //         // Format: { tool: { name: "update_calendar", arguments: {...} } }
+  //         name = msg.tool.name;
+  //         args = msg.tool.arguments;
+  //         toolCallId = msg.tool_call_id;
+  //       } else {
+  //         // Format: { name: "update_calendar", arguments: {...} }
+  //         name = msg.name;
+  //         args = msg.arguments;
+  //         toolCallId = msg.tool_call_id;
+  //       }
         
 
-        if (name === 'end_call') {
-          // Actually end the call by going back to landing
-          setStep('landing');
-          setConversationUrl(null); // Clear the conversation URL
-          sendToolResultToTavus(conversationUrl, toolCallId, { 
-            ok: true
-          });
-          return;
-        }
+  //       if (name === 'end_call') {
+  //         // Actually end the call by going back to landing
+  //         setStep('landing');
+  //         setConversationUrl(null); // Clear the conversation URL
+  //         sendToolResultToTavus(conversationUrl, toolCallId, { 
+  //           ok: true
+  //         });
+  //         return;
+  //       }
 
-        if (name !== 'update_calendar') {
-          return;
-        }
+  //       if (name !== 'update_calendar') {
+  //         return;
+  //       }
 
-        const id = toolCallId || '';
-        if (id && inFlightToolCalls.current.has(id)) {
-          return;
-        }
-        if (id) inFlightToolCalls.current.add(id);
+  //       const id = toolCallId || '';
+  //       if (id && inFlightToolCalls.current.has(id)) {
+  //         return;
+  //       }
+  //       if (id) inFlightToolCalls.current.add(id);
 
-        if (typeof args === 'string') {
-          try { args = JSON.parse(args); } catch (e) { /* Could not parse string args */ }
-        }
+  //       if (typeof args === 'string') {
+  //         try { args = JSON.parse(args); } catch (e) { /* Could not parse string args */ }
+  //       }
 
-        const inviteeEmail = String(args.email || email || '').trim();
-        const reqDuration = 30; // Only 30-minute meetings
+  //       const inviteeEmail = String(args.email || email || '').trim();
+  //       const reqDuration = 30; // Only 30-minute meetings
 
-        const iso = args.iso_start || args.start_time || args.datetime || args.date_time;
-        const whenISO = typeof iso === 'string' ? iso : (iso?.iso || iso?.value || null);
-        const datetimeText = args.datetimeText || args.when || null;
-        const toolTimezone = args.timezone || timezone || 'America/Los_Angeles';
+  //       const iso = args.iso_start || args.start_time || args.datetime || args.date_time;
+  //       const whenISO = typeof iso === 'string' ? iso : (iso?.iso || iso?.value || null);
+  //       const datetimeText = args.datetimeText || args.when || null;
+  //       const toolTimezone = args.timezone || timezone || 'America/Los_Angeles';
 
-        if (!inviteeEmail || (!whenISO && !datetimeText)) {
-          const errorMsg = 'Missing email or time in tool args';
-          sendToolResultToTavus(conversationUrl, id, { ok: false, error: errorMsg });
-          setToolError('Missing booking info from tool call.');
-          return;
-        }
+  //       if (!inviteeEmail || (!whenISO && !datetimeText)) {
+  //         const errorMsg = 'Missing email or time in tool args';
+  //         sendToolResultToTavus(conversationUrl, id, { ok: false, error: errorMsg });
+  //         setToolError('Missing booking info from tool call.');
+  //         return;
+  //       }
 
-        // Path A: ISO provided → book directly
-        if (whenISO) {
-          await confirmAndBook({
-            email: inviteeEmail,
-            start_time: whenISO,
-            duration: reqDuration,
-            title: args.title,
-            notes: args.notes,
-            timezone: toolTimezone,
-          });
-          sendToolResultToTavus(conversationUrl, id, { ok: true, start_time: whenISO });
-          return;
-        }
+  //       // Path A: ISO provided → book directly
+  //       if (whenISO) {
+  //         await confirmAndBook({
+  //           email: inviteeEmail,
+  //           start_time: whenISO,
+  //           duration: reqDuration,
+  //           title: args.title,
+  //           notes: args.notes,
+  //           timezone: toolTimezone,
+  //         });
+  //         sendToolResultToTavus(conversationUrl, id, { ok: true, start_time: whenISO });
+  //         return;
+  //       }
 
-        // Path B: Natural language → send to intent endpoint to parse + check availability + book
-        const bookingPayload = {
-            intent: 'BOOK_MEETING',
-            email: inviteeEmail,
-            duration: reqDuration,
-            datetimeText,
-          timezone: toolTimezone,
-            confirm: true,
-            notes: args.notes,
-            title: args.title || 'Intro with Hassaan'
-        };
+  //       // Path B: Natural language → send to intent endpoint to parse + check availability + book
+  //       const bookingPayload = {
+  //           intent: 'BOOK_MEETING',
+  //           email: inviteeEmail,
+  //           duration: reqDuration,
+  //           datetimeText,
+  //         timezone: toolTimezone,
+  //           confirm: true,
+  //           notes: args.notes,
+  //           title: args.title || 'Intro with Hassaan'
+  //       };
         
         
-        const res = await fetch('/api/tavus/intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bookingPayload),
-        });
+  //       const res = await fetch('/api/tavus/intent', {
+  //         method: 'POST',
+  //         headers: { 'Content-Type': 'application/json' },
+  //         body: JSON.stringify(bookingPayload),
+  //       });
         
-        const data = await res.json();
+  //       const data = await res.json();
 
-        if (!res.ok || !data?.ok) {
-          const errorMsg = data?.error || 'Booking failed via intent';
-          sendToolResultToTavus(conversationUrl, id, { ok: false, error: errorMsg });
-          setToolError(errorMsg);
-          return;
-        }
+  //       if (!res.ok || !data?.ok) {
+  //         const errorMsg = data?.error || 'Booking failed via intent';
+  //         sendToolResultToTavus(conversationUrl, id, { ok: false, error: errorMsg });
+  //         setToolError(errorMsg);
+  //         return;
+  //       }
 
-        // Format the booked time for echo message
-        const bookedTime = new Date(data.booked_start_time);
-        const attendeeName = email.split('@')[0]; // Extract name from email
-        const timeString = bookedTime.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZoneName: 'short'
-        });
+  //       // Format the booked time for echo message
+  //       const bookedTime = new Date(data.booked_start_time);
+  //       const attendeeName = email.split('@')[0]; // Extract name from email
+  //       const timeString = bookedTime.toLocaleDateString('en-US', {
+  //         weekday: 'long',
+  //         year: 'numeric',
+  //         month: 'long',
+  //         day: 'numeric',
+  //         hour: 'numeric',
+  //         minute: '2-digit',
+  //         timeZoneName: 'short'
+  //       });
         
-        // Send echo message to Tavus
-        const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
-        console.log('🔊 [ECHO] Sending echo message:', echoMessage);
+  //       // Send echo message to Tavus
+  //       const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
+  //       console.log('🔊 [ECHO] Sending echo message:', echoMessage);
         
-        if (conversationUrl) {
-          // Extract conversationId from URL or use a placeholder
-          const conversationId = new URL(conversationUrl).searchParams.get('conversation_id') || 'unknown';
-          sendEchoToTavus(conversationUrl, conversationId, echoMessage, 'text');
-        }
+  //       if (conversationUrl) {
+  //         // Extract conversationId from URL or use a placeholder
+  //         const conversationId = new URL(conversationUrl).searchParams.get('conversation_id') || 'unknown';
+  //         sendEchoToTavus(conversationUrl, conversationId, echoMessage, 'text');
+  //       }
 
-        sendToolResultToTavus(conversationUrl, id, {
-          ok: true,
-          start_time: data.booked_start_time
-        });
-      } finally {
-        if ((msg as any)?.tool_call_id) inFlightToolCalls.current.delete((msg as any).tool_call_id);
-      }
-    },
-    [conversationUrl, duration, email, timezone]
-  );
+  //       sendToolResultToTavus(conversationUrl, id, {
+  //         ok: true,
+  //         start_time: data.booked_start_time
+  //       });
+  //     } finally {
+  //       if ((msg as { tool_call_id?: string })?.tool_call_id) inFlightToolCalls.current.delete((msg as { tool_call_id: string }).tool_call_id);
+  //     }
+  //   },
+  //   [conversationUrl, duration, email, timezone]
+  // );
 
   // OLD postMessage implementation - replaced with Tavus hooks above
   // Keeping this commented out for reference
@@ -833,12 +830,12 @@ export default function Page() {
 
   const visibleLogs = logs.filter((l) => {
     if (!filterToolCalls) return true;
-    const d = l.data;
+    const d = l.data as Record<string, unknown>;
     const isTool =
       d?.type === 'conversation.tool_call' ||
       d?.event_type === 'conversation.tool_call' ||
       d?.name === 'update_calendar' ||
-      d?.tool?.name === 'update_calendar' ||
+      (d?.tool as Record<string, unknown>)?.name === 'update_calendar' ||
       l.note?.includes('tool_call') ||
       l.note?.includes('/api/book') ||
       l.note?.includes('/api/tavus/intent');
@@ -853,7 +850,7 @@ export default function Page() {
           <div className="mb-8">
             <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Hassaan</h2>
             <p className="text-sm terminal-text">
-              I'm Hassaan's assistant. I can schedule a 30-minute meeting for you.
+              I&apos;m Hassaan&apos;s assistant. I can schedule a 30-minute meeting for you.
               Tell me your email below to get started.
             </p>
           </div>
@@ -906,10 +903,10 @@ export default function Page() {
             <div className="p-6 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
               <h3 className="mb-2" style={{ color: 'black' }}>What happens next</h3>
               <ul className="text-sm terminal-text list-disc pl-5 space-y-1">
-                <li>We'll test your camera and mic.</li>
+                <li>We&apos;ll test your camera and mic.</li>
                 <li>Join a quick AI-powered assistant call.</li>
-                <li>I'll check availability and confirm a time.</li>
-                <li>You'll get a calendar invite by email.</li>
+                <li>I&apos;ll check availability and confirm a time.</li>
+                <li>You&apos;ll get a calendar invite by email.</li>
               </ul>
               <div className="mt-4 text-xs terminal-text">
                 <div>Tip: All meetings are 30 minutes in duration.</div>
@@ -928,7 +925,7 @@ export default function Page() {
         <div className="max-w-5xl mx-auto px-6 py-10">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Meet Hassaan's AI Assistant</h2>
+              <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Meet Hassaan&apos;s AI Assistant</h2>
               <p className="text-sm terminal-text">
                 {!mediaStream 
                   ? 'Initializing camera & microphone...' 
@@ -1011,7 +1008,7 @@ export default function Page() {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Scheduling Call</h2>
-              <p className="text-sm terminal-text">Book your meeting with Hassaan's AI assistant</p>
+              <p className="text-sm terminal-text">Book your meeting with Hassaan&apos;s AI assistant</p>
             </div>
             <button onClick={() => setStep('haircheck')} className="text-sm underline terminal-text">← Back</button>
           </div>
@@ -1032,7 +1029,7 @@ export default function Page() {
                   </div>
                 </div>
               )}
-              {toolError && <div className="mt-3 text-sm text-red-600">{toolError}</div>}
+              {/* {toolError && <div className="mt-3 text-sm text-red-600">{toolError}</div>} */}
             </div>
 
             {/* Right: availability + optional manual booking */}

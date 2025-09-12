@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
   const data = await r.json();
   
-  const slots = (data?.collection || []).map((s: any) => ({
+  const slots = (data?.collection || []).map((s: { start_time: string; end_time: string; scheduling_url?: string }) => ({
     start_time: s.start_time,
     end_time: s.end_time,
     scheduling_url: s.scheduling_url || null,

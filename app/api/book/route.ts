@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     });
     console.log('[book] Free/busy response:', fb.data);
     
-    const busy = (fb.data.calendars?.[calendarId] as any)?.busy;
+    const busy = (fb.data.calendars?.[calendarId] as { busy?: Array<{ start: string; end: string }> })?.busy;
     console.log('[book] Busy periods:', busy);
     
     if (busy && busy.length) {
@@ -115,14 +115,14 @@ export async function POST(req: Request) {
       htmlLink: ev.data.htmlLink,
       hangoutLink: ev.data.hangoutLink,
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('[book] Error during calendar booking:', e);
     console.error('[book] Error details:', {
-      message: e?.message,
-      code: e?.code,
-      status: e?.status,
-      response: e?.response?.data
+      message: e instanceof Error ? e.message : 'Unknown error',
+      code: (e as { code?: unknown })?.code,
+      status: (e as { status?: unknown })?.status,
+      response: (e as { response?: { data?: unknown } })?.response?.data
     });
-    return NextResponse.json({ error: e?.message || 'unknown error' }, { status: 500 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'unknown error' }, { status: 500 });
   }
 }

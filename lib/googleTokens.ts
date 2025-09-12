@@ -4,7 +4,7 @@ import { google } from 'googleapis';
 
 const TOKENS_FILE = path.join(process.cwd(), '.google-tokens.json');
 
-export async function setTokens(t: any) {
+export async function setTokens(t: Record<string, unknown>) {
   try {
     await fs.writeFile(TOKENS_FILE, JSON.stringify(t, null, 2));
     console.log('[googleTokens] Tokens saved to file');
@@ -29,7 +29,7 @@ export async function clearTokens() {
   try {
     await fs.unlink(TOKENS_FILE);
     console.log('[googleTokens] Tokens file deleted');
-  } catch (error) {
+  } catch {
     console.log('[googleTokens] No tokens file to delete');
   }
 }
@@ -73,7 +73,7 @@ export async function getValidTokens() {
         console.log('[googleTokens] Token refreshed successfully');
         
         // Save the new tokens
-        await setTokens(credentials);
+        await setTokens(credentials as Record<string, unknown>);
         return credentials;
       } catch (refreshError) {
         console.error('[googleTokens] Token refresh failed:', refreshError);

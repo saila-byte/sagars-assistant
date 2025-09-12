@@ -29,8 +29,8 @@ export const useCVICall = (): {
 						},
 					},
 				},
-			}).catch((error) => {
-
+			}).catch(() => {
+				// Handle error silently
 			});
 		},
 		[daily]

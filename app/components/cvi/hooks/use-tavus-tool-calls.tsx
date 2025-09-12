@@ -5,12 +5,9 @@ import { useObservableEvent, useSendAppMessage } from './cvi-events-hooks';
 
 // Tool call types based on your existing implementation
 export type ToolCallMsg = {
-  type: string;
+  name: string;
+  arguments: unknown;
   tool_call_id: string;
-  tool: {
-    name: string;
-    arguments: any;
-  };
 };
 
 export type ToolResult = {
@@ -19,8 +16,8 @@ export type ToolResult = {
   htmlLink?: string;
   hangoutLink?: string;
   error?: string;
-  originalEvent?: any;
-  newEvent?: any;
+  originalEvent?: Record<string, unknown>;
+  newEvent?: Record<string, unknown>;
 };
 
 export const useTavusToolCalls = (

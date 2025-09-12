@@ -221,17 +221,17 @@ export async function POST(req: Request) {
       });
     }
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[tavus.events] Error processing callback:', error);
     return NextResponse.json(
-      { error: 'Failed to process callback', details: error.message },
+      { error: 'Failed to process callback', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
 // Also handle GET requests for health checks
-export async function GET(req: Request) {
+export async function GET() {
   console.log('[tavus.events] Health check received');
   return NextResponse.json({ 
     status: 'healthy', 

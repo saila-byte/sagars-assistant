@@ -39,10 +39,10 @@ export async function GET() {
       })),
       currentCalendarId: process.env.HASSAAN_CALENDAR_ID || 'primary'
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ 
-      error: error.message,
-      details: error.toString()
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: String(error)
     }, { status: 500 });
   }
 }
