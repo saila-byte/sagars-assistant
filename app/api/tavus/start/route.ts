@@ -193,7 +193,20 @@ export async function POST(req: Request) {
       availability = await fetchAvailability(_timezone);
     }
 
-    
+    // Get current date and time in the user's timezone (or default)
+    const now = new Date();
+    const currentDateTime = now.toLocaleString('en-US', { 
+      timeZone: _timezone, 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric', 
+      hour: 'numeric', 
+      minute: '2-digit', 
+      second: '2-digit', 
+      timeZoneName: 'short' 
+    });
+
     // --- Minimal payload to isolate auth/IDs (matches your working curl shape) ---
     const origin = process.env.NODE_ENV === 'production' 
       ? 'https://your-domain.com' 
@@ -210,6 +223,7 @@ export async function POST(req: Request) {
 
 User's email: ${_email}. Timezone: ${_timezone}. All meetings are 30 minutes.
 
+Current date and time: ${currentDateTime}
 
 Existing meetings: ${userEvents}
 
