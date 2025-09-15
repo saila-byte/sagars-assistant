@@ -26,25 +26,6 @@ const TIMEZONE_OPTIONS = [
   { value: 'Pacific/Auckland', label: 'NZST (Auckland)' },
 ];
 
-function extractToolCallPayload(data: any): ToolCallMsg | null {
-  if (!data || typeof data !== 'object') return null;
-
-  // Check for direct tool call format
-  if (data.type === 'conversation.tool_call' && data.tool) {
-    return {
-      type: data.type,
-      tool_call_id: data.tool_call_id,
-      tool: data.tool
-    };
-  }
-
-  // Check for nested tool call format
-  if (data.message_type === 'conversation' && data.event_type === 'conversation.tool_call') {
-    return data.properties || null;
-  }
-
-  return null;
-}
 
 type Slot = { start_time: string; scheduling_url: string | null };
 
@@ -53,16 +34,16 @@ type ToolCallMsg = {
   event_type?: string;
   message_type?: string;
   tool_call_id?: string;
-  tool?: { name?: string; arguments?: string | Record<string, any> };
+  tool?: { name?: string; arguments?: string | Record<string, unknown> };
   name?: string;
   arguments?: unknown;
 };
 
 type ToolResult =
-  | { ok: true; start_time?: string; htmlLink?: string; hangoutLink?: string; originalEvent?: any; newEvent?: any }
+  | { ok: true; start_time?: string; htmlLink?: string; hangoutLink?: string }
   | { ok: false; error: string };
 
-function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: string | undefined, result: ToolResult) {
+function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: string | undefined, result: ToolResult): void {
   if (!conversationUrl || !tool_call_id) {
     return;
   }
@@ -85,50 +66,7 @@ function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: str
   }
 }
 
-function sendEchoToTavus(conversationUrl: string | null, conversationId: string, message: string, modality: 'audio' | 'text' = 'text') {
-  if (!conversationUrl || !conversationId) {
-    return;
-  }
-  try {
-    const targetOrigin = new URL(conversationUrl).origin;
-    const iframes = Array.from(document.getElementsByTagName('iframe'));
-    const target = iframes.find((f) => {
-      try {
-        const src = f.getAttribute('src') || '';
-        return src.startsWith(targetOrigin);
-      } catch {
-        return false;
-      }
-    });
-    
-    // First send interrupt to stop current speech
-    target?.contentWindow?.postMessage(
-      {
-        message_type: 'conversation',
-        event_type: 'conversation.interrupt',
-        conversation_id: conversationId
-      },
-      targetOrigin
-    );
-    
-    // Then send the echo message using AppMessageEcho structure
-    target?.contentWindow?.postMessage(
-      {
-        message_type: 'conversation',
-        event_type: 'conversation.echo',
-        conversation_id: conversationId,
-        properties: {
-          modality: modality,
-          text: message
-        }
-      },
-      targetOrigin
-    );
-  } catch (e) {
-  }
-}
-
-function safeStringify(v: any) {
+function safeStringify(v: unknown): string {
   try {
     return JSON.stringify(v, null, 2);
   } catch {
@@ -140,7 +78,7 @@ function safeStringify(v: any) {
 export default function Page() {
   const duration = 30; // Only 30-minute meetings
 
-  const [step, setStep] = useState<'landing' | 'haircheck' | 'call'>('landing');
+  const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('landing');
   const [email, setEmail] = useState('ashish@tavus.io');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
   const [errors, setErrors] = useState<string | null>(null);
@@ -157,19 +95,19 @@ export default function Page() {
   // Haircheck state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [micLevel, setMicLevel] = useState<number>(0);
   const [avReady, setAvReady] = useState(false);
 
   // Tool-call / debug state
   const [toolError, setToolError] = useState<string | null>(null);
+  const [bookingInfo, setBookingInfo] = useState<{ htmlLink?: string; hangoutLink?: string } | null>(null);
   const inFlightToolCalls = useRef<Set<string>>(new Set());
 
   // Debug panel state
   const [debugOpen, setDebugOpen] = useState(false);
-  const [logs, setLogs] = useState<{ ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: any }[]>([]);
+  const [logs, setLogs] = useState<{ ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: unknown }[]>([]);
   const [filterToolCalls, setFilterToolCalls] = useState(true);
 
-  const pushLog = useCallback((entry: { ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: any }) => {
+  const pushLog = useCallback((entry: { ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: unknown }) => {
     setLogs((prev) => {
       const next = [entry, ...prev];
       if (next.length > 50) next.length = 50;
@@ -189,7 +127,7 @@ export default function Page() {
   }, [logs]);
 
   // Handle tool calls from Tavus using the built-in hooks
-  const handleTavusToolCall = useCallback(async (toolCall: any, conversationId: string) => {
+  const handleTavusToolCall = useCallback(async (toolCall: Record<string, unknown>, conversationId: string) => {
     console.log('🔧 [TOOL_CALL] Received tool call via Tavus hooks:', { toolCall, conversationId });
     pushLog({ ts: Date.now(), origin: 'tavus-hooks', kind: 'message', note: 'tool_call', data: toolCall });
     
@@ -270,100 +208,24 @@ export default function Page() {
         const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
         console.log('🔊 [ECHO] Sending echo message:', echoMessage);
         
-        // First interrupt any current speech, then send echo
-        tavusToolCalls.interruptReplica(conversationId);
         tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
         
         // Send success result back to Tavus
         tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
           ok: true,
-          start_time: bookingData.booked_start_time
+          start_time: bookingData.booked_start_time,
+          htmlLink: bookingData.htmlLink,
+          hangoutLink: bookingData.hangoutLink
         });
+        
+        setBookingInfo({ htmlLink: bookingData.htmlLink, hangoutLink: bookingData.hangoutLink });
+        setStep('confirm');
         
       } catch (error) {
         console.error('Error handling update_calendar tool call:', error);
         tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
           ok: false,
           error: `Failed to book meeting: ${error instanceof Error ? error.message : 'Unknown error'}`
-        });
-      }
-    } else if (toolCall.name === 'reschedule_meeting') {
-      try {
-        // Parse the arguments string into an object
-        const args = typeof toolCall.arguments === 'string' 
-          ? JSON.parse(toolCall.arguments) 
-          : toolCall.arguments;
-        
-        console.log('🔧 [TOOL_CALL] Processing reschedule_meeting with args:', args);
-        
-        const userEmail = args.userEmail || email;
-        const newStartTime = args.newStartTime;
-        const reason = args.reason || 'User requested reschedule';
-        
-        if (!userEmail || !newStartTime) {
-          const errorMsg = `Missing required parameters: ${!userEmail ? 'userEmail' : ''} ${!newStartTime ? 'newStartTime' : ''}`.trim();
-          console.error('🔧 [TOOL_CALL] Missing parameters:', { userEmail, newStartTime, args });
-          tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
-            ok: false,
-            error: errorMsg
-          });
-          return;
-        }
-        
-        // Call the reschedule API
-        const rescheduleResponse = await fetch('/api/reschedule', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userEmail: userEmail,
-            newStartTime: newStartTime,
-            reason: reason
-          })
-        });
-        
-        const rescheduleData = await rescheduleResponse.json();
-        
-        if (!rescheduleResponse.ok || !rescheduleData?.ok) {
-          tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
-            ok: false,
-            error: rescheduleData?.error || 'Reschedule failed'
-          });
-          return;
-        }
-        
-        // Format the new time for the echo message
-        const newStart = new Date(newStartTime);
-        const timeString = newStart.toLocaleString('en-US', {
-          timeZone: timezone || 'America/Los_Angeles',
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZoneName: 'short'
-        });
-        
-        // Send combined echo message to Tavus
-        const echoMessage = `I successfully rescheduled your meeting to ${timeString}. Hassan is looking forward to meet you.`;
-        console.log('🔊 [ECHO] Sending reschedule echo message:', echoMessage);
-        
-        // First interrupt any current speech, then send echo
-        tavusToolCalls.interruptReplica(conversationId);
-        tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
-        
-        // Send success result back to Tavus
-        tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
-          ok: true,
-          originalEvent: rescheduleData.originalEvent,
-          newEvent: rescheduleData.newEvent
-        });
-        
-      } catch (error) {
-        console.error('Error handling reschedule_meeting tool call:', error);
-        tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
-          ok: false,
-          error: `Failed to reschedule meeting: ${error instanceof Error ? error.message : 'Unknown error'}`
         });
       }
     } else if (toolCall.name === 'end_call') {
@@ -402,12 +264,12 @@ export default function Page() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       setMediaStream(stream);
       if (videoRef.current) {
-        // @ts-ignore
+        // @ts-expect-error - srcObject is a valid property for video elements
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
       }
 
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
@@ -520,6 +382,11 @@ export default function Page() {
     }
   }, [avReady, conversationUrl, conversationPreparing, loadingSlots, slots, prepareConversation]);
 
+  // -------- Slot selection handler --------
+  function handleSlotSelect(slot: { start_time: string }) {
+    setSelectedSlot(slot);
+  }
+
   // -------- Manual confirm button (fallback) --------
   async function confirmAndBook(args?: {
     email?: string;
@@ -554,8 +421,10 @@ export default function Page() {
       const data = await r.json();
       pushLog({ ts: Date.now(), origin: 'local', kind: r.ok && data?.ok ? 'info' : 'error', note: 'POST /api/book result', data });
       if (!r.ok || !data?.ok) throw new Error(data?.error || 'Booking failed');
-    } catch (e: any) {
-      const msg = e?.message || 'Could not book this time.';
+      setBookingInfo({ htmlLink: data.htmlLink, hangoutLink: data.hangoutLink });
+      setStep('confirm');
+    } catch (e: unknown) {
+      const msg = (e as Error)?.message || 'Could not book this time.';
       setErrors(msg);
       pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Booking error', data: msg });
     } finally {
@@ -570,7 +439,7 @@ export default function Page() {
         
         // Handle different message formats
         let name: string | undefined;
-        let args: any;
+        let args: Record<string, unknown>;
         let toolCallId: string | undefined;
         
         if (Array.isArray(msg) && msg.length > 0) {
@@ -673,35 +542,17 @@ export default function Page() {
           return;
         }
 
-        // Format the booked time for echo message
-        const bookedTime = new Date(data.booked_start_time);
-        const attendeeName = email.split('@')[0]; // Extract name from email
-        const timeString = bookedTime.toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          timeZoneName: 'short'
-        });
-        
-        // Send echo message to Tavus
-        const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
-        console.log('🔊 [ECHO] Sending echo message:', echoMessage);
-        
-        if (conversationUrl) {
-          // Extract conversationId from URL or use a placeholder
-          const conversationId = new URL(conversationUrl).searchParams.get('conversation_id') || 'unknown';
-          sendEchoToTavus(conversationUrl, conversationId, echoMessage, 'text');
-        }
 
         sendToolResultToTavus(conversationUrl, id, {
           ok: true,
-          start_time: data.booked_start_time
+          start_time: data.booked_start_time,
+          htmlLink: data.htmlLink,
+          hangoutLink: data.hangoutLink
         });
+        setBookingInfo({ htmlLink: data.htmlLink, hangoutLink: data.hangoutLink });
+        setStep('confirm');
       } finally {
-        if ((msg as any)?.tool_call_id) inFlightToolCalls.current.delete((msg as any).tool_call_id);
+        if ((msg as { tool_call_id?: string })?.tool_call_id) inFlightToolCalls.current.delete((msg as { tool_call_id: string }).tool_call_id);
       }
     },
     [conversationUrl, duration, email, timezone]
@@ -711,7 +562,7 @@ export default function Page() {
   // Keeping this commented out for reference
   /*
   useEffect(() => {
-    function handleAppMessage(event: any) {
+    function handleAppMessage(event: MessageEvent) {
       console.log('🔧 [TOOL_CALL] ===== APP MESSAGE RECEIVED =====')
       
       // The message is directly in the event data
@@ -738,7 +589,7 @@ export default function Page() {
     }
 
     // Handle tool calls from app messages (similar to sample code)
-    async function handleToolCallFromAppMessage(toolCall: any, conversationId: string) {
+    async function handleToolCallFromAppMessage(toolCall: Record<string, unknown>, conversationId: string) {
       
       if (toolCall.name === 'update_calendar') {
         try {
@@ -846,89 +697,176 @@ export default function Page() {
   });
 
   return (
-    <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
+    <div className="min-h-screen" style={{ color: 'var(--terminal-text)' }}>
 
       {step === 'landing' && (
-        <div className="max-w-3xl mx-auto px-6 py-12">
-          <div className="mb-8">
-            <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Hassaan</h2>
-            <p className="text-sm terminal-text">
-              I'm Hassaan's assistant. I can schedule a 30-minute meeting for you.
-              Tell me your email below to get started.
-            </p>
+        <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
+          <div className="mb-6 w-full">
+            <div className="flex items-start gap-3 mb-4 -ml-8">
+              <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+            </div>
+            <div className="text-center">
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Hassaan</h2>
+              <p className="text-sm terminal-text">
+                I&apos;m Hassaan&apos;s assistant. I can schedule a 30-minute meeting for you.
+                Tell me your email below to get started.
+              </p>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 items-start">
-            <div className="p-6 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm mb-2" style={{ color: 'black' }}>Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                    className="w-full terminal-input rounded"
-                />
-                {remembered && !email && (
-                    <button onClick={() => setEmail(remembered)} className="text-xs underline terminal-text mt-1">
-                    Use last email: {remembered}
-                  </button>
-                )}
+          <div className="w-full max-w-4xl">
+            {/* Video Container with Overlay Form */}
+            <div 
+              className="aspect-video overflow-hidden relative"
+              style={{
+                '--plyr-color-main': 'white',
+                '--plyr-tab-focus-color': 'transparent',
+                '--plyr-video-control-color-hover': 'black',
+                '--plyr-control-icon-size': '1.5em',
+                '--plyr-range-thumb-height': '0px',
+                '--plyr-range-track-height': '0.6em',
+                '--themes--background': 'var(--primatives--pc-plastic-1)',
+                '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                '--themes--text': 'var(--primatives--terminal-black)',
+                '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                '--primatives--pc-plastic-3': '#b9ae9c',
+                '--primatives--static-white': 'white',
+                '--primatives--pc-plastic-2': '#e3dcd1',
+                '--primatives--bubbletech-4': '#ff6183',
+                '--primatives--pc-plastic-1': '#f3eee7',
+                '--primatives--terminal-black': '#140206',
+                '--themes--border': 'var(--primatives--terminal-black)',
+                '--themes--foreground': 'var(--primatives--static-white)',
+                fontFamily: 'var(--_typography---primary-font-family)',
+                color: 'var(--themes--text)',
+                fontSize: '1rem',
+                lineHeight: '1.5',
+                WebkitFontSmoothing: 'antialiased',
+                textRendering: 'optimizeLegibility',
+                boxSizing: 'border-box',
+                border: '1px solid var(--themes--border)',
+                backgroundColor: 'var(--primatives--pc-plastic-2)',
+                flexFlow: 'column',
+                width: '100%',
+                paddingBottom: '.18vw',
+                display: 'flex',
+                position: 'relative',
+                boxShadow: '3.94px 5.91px #000',
+                paddingLeft: '3px',
+                paddingRight: '3px'
+              } as React.CSSProperties}
+            >
+              <video
+                className="w-full h-full object-cover"
+                autoPlay
+                loop
+                muted
+                playsInline
+              >
+                <source src="https://cdn.replica.tavus.io/20426/12dfe205.mp4" type="video/mp4" />
+                Your browser does not support the video tag.
+              </video>
+              
+              {/* Form overlay on video */}
+              <div className="absolute inset-0 flex items-end justify-center pb-16">
+                <div className="p-4 rounded-lg w-64 max-w-full mx-4" style={{ fontFamily: 'var(--default-font-family)' }}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs mb-2 text-white font-semibold drop-shadow-lg" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--text-xs)', lineHeight: 'var(--text-xs--line-height)', opacity: 0.8 }}>Email</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@company.com"
+                        className="w-full px-2 py-1 text-white placeholder-white placeholder-opacity-70 focus:ring-2 focus:ring-white focus:ring-opacity-50 focus:border-transparent"
+                        style={{ 
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 'var(--text-xs)', 
+                          lineHeight: 'var(--text-xs--line-height)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          opacity: 0.8,
+                          transition: 'var(--default-transition-duration) var(--default-transition-timing-function)'
+                        }}
+                      />
+                        {remembered && !email && (
+                          <div className="button-wrapper mt-1">
+                            <button onClick={() => setEmail(remembered)} className="button" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--text-xs)', lineHeight: 'var(--text-xs--line-height)', opacity: 0.8 }}>
+                              <div className="btn_text">Use last email: {remembered}</div>
+                              <div className="btn_texture"></div>
+                            </button>
+                          </div>
+                        )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-2 text-white font-semibold drop-shadow-lg" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 'var(--text-xs)', lineHeight: 'var(--text-xs--line-height)', opacity: 0.8 }}>Timezone</label>
+                      <select
+                        value={timezone}
+                        onChange={(e) => setTimezone(e.target.value)}
+                        className="w-full px-2 py-1 text-white focus:ring-2 focus:ring-white focus:ring-opacity-50 focus:border-transparent"
+                        style={{ 
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 'var(--text-xs)', 
+                          lineHeight: 'var(--text-xs--line-height)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)',
+                          opacity: 0.8,
+                          transition: 'var(--default-transition-duration) var(--default-transition-timing-function)'
+                        }}
+                      >
+                        {TIMEZONE_OPTIONS.map((tz) => (
+                          <option key={tz.value} value={tz.value} className="text-black">
+                            {tz.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {errors && <div className="text-sm text-red-200 drop-shadow-lg">{errors}</div>}
+
+                      <div className="button-wrapper w-full">
+                        <button
+                          onClick={handleStart}
+                          className="button w-full"
+                          style={{ 
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: 'var(--text-xs)', 
+                            lineHeight: 'var(--text-xs--line-height)',
+                            opacity: 0.8
+                          }}
+                        >
+                          <div className="btn_text">Continue</div>
+                          <div className="btn_texture"></div>
+                        </button>
+                      </div>
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm mb-2" style={{ color: 'black' }}>Timezone</label>
-                  <select
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full terminal-input rounded"
-                  >
-                    {TIMEZONE_OPTIONS.map((tz) => (
-                      <option key={tz.value} value={tz.value}>
-                        {tz.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {errors && <div className="text-sm terminal-error">{errors}</div>}
-
-                <button
-                  onClick={handleStart}
-                  className="w-full mt-2 terminal-button px-4 py-3"
-                >
-                  Continue
-                </button>
               </div>
             </div>
 
-            <div className="p-6 terminal-border" style={{ background: 'var(--terminal-bg)' }}>
-              <h3 className="mb-2" style={{ color: 'black' }}>What happens next</h3>
-              <ul className="text-sm terminal-text list-disc pl-5 space-y-1">
-                <li>We'll test your camera and mic.</li>
-                <li>Join a quick AI-powered assistant call.</li>
-                <li>I'll check availability and confirm a time.</li>
-                <li>You'll get a calendar invite by email.</li>
-              </ul>
-              <div className="mt-4 text-xs terminal-text">
-                <div>Tip: All meetings are 30 minutes in duration.</div>
-                <div className="mt-1">
-                  Times will be shown in: <span className="terminal-green">
-                    {TIMEZONE_OPTIONS.find(tz => tz.value === timezone)?.label || timezone}
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
 
       {step === 'haircheck' && (
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Meet Hassaan's AI Assistant</h2>
+        <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
+          <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
+          <div className="mb-6 w-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-3 -ml-8">
+                <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+              </div>
+              <div className="button-wrapper">
+                <button onClick={() => {
+                  setStep('landing');
+                  setConversationPreparing(false);
+                }} className="button">
+                  <div className="btn_text">← Back</div>
+                  <div className="btn_texture"></div>
+                </button>
+              </div>
+            </div>
+            <div className="text-center mt-4">
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Meet Hassaan&apos;s AI Assistant</h2>
               <p className="text-sm terminal-text">
                 {!mediaStream 
                   ? 'Initializing camera & microphone...' 
@@ -942,89 +880,207 @@ export default function Page() {
                 }
               </p>
             </div>
-            <button onClick={() => {
-              setStep('landing');
-              setConversationPreparing(false);
-            }} className="text-sm underline terminal-text">← Back</button>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 items-start">
-            <div className="md:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)', boxShadow: '6px 6px 0px 0px var(--color-scheme-1-border)' }}>
-              <div className="aspect-video terminal-border rounded overflow-hidden flex items-center justify-center" style={{ background: 'var(--terminal-bg)' }}>
-                <video ref={videoRef} className="w-full h-full object-cover" muted />
-              </div>
-
-              <div className="mt-4 flex gap-3">
-                {!mediaStream ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 text-sm terminal-text">
-                      <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
-                      Requesting camera & microphone access...
-                    </div>
+          <div className="w-full max-w-4xl">
+            <div 
+              className="aspect-video overflow-hidden relative"
+              style={{
+                '--plyr-color-main': 'white',
+                '--plyr-tab-focus-color': 'transparent',
+                '--plyr-video-control-color-hover': 'black',
+                '--plyr-control-icon-size': '1.5em',
+                '--plyr-range-thumb-height': '0px',
+                '--plyr-range-track-height': '0.6em',
+                '--themes--background': 'var(--primatives--pc-plastic-1)',
+                '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                '--themes--text': 'var(--primatives--terminal-black)',
+                '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                '--primatives--pc-plastic-3': '#b9ae9c',
+                '--primatives--static-white': 'white',
+                '--primatives--pc-plastic-2': '#e3dcd1',
+                '--primatives--bubbletech-4': '#ff6183',
+                '--primatives--pc-plastic-1': '#f3eee7',
+                '--primatives--terminal-black': '#140206',
+                '--themes--border': 'var(--primatives--terminal-black)',
+                '--themes--foreground': 'var(--primatives--static-white)',
+                fontFamily: 'var(--_typography---primary-font-family)',
+                color: 'var(--themes--text)',
+                fontSize: '1rem',
+                lineHeight: '1.5',
+                WebkitFontSmoothing: 'antialiased',
+                textRendering: 'optimizeLegibility',
+                boxSizing: 'border-box',
+                border: '1px solid var(--themes--border)',
+                backgroundColor: 'var(--primatives--pc-plastic-2)',
+                flexFlow: 'column',
+                width: '100%',
+                paddingBottom: '.18vw',
+                display: 'flex',
+                position: 'relative',
+                boxShadow: '3.94px 5.91px #000',
+                paddingLeft: '3px',
+                paddingRight: '3px'
+              } as React.CSSProperties}
+            >
+              <video ref={videoRef} className="w-full h-full object-cover" muted />
+              
+              {!mediaStream ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin w-8 h-8 border-4 terminal-border border-t-terminal-green rounded-full mx-auto mb-4"></div>
+                    <p className="text-sm terminal-text">Requesting camera & microphone access...</p>
                     {errors && (
-                      <button onClick={requestAV} className="terminal-button px-4 py-2 text-sm">
-                        Try Again
-                      </button>
+                      <div className="mt-4">
+                        <div className="button-wrapper">
+                          <button onClick={requestAV} className="button">
+                            <div className="btn_text">Try Again</div>
+                            <div className="btn_texture"></div>
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
-                ) : (
-                  <>
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-end justify-center pb-16">
+                  <div className="button-wrapper">
                     <button 
                       onClick={goToCall} 
                       disabled={conversationPreparing}
-                      className="terminal-button px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="button disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {conversationPreparing ? (
-                        <div className="flex items-center gap-2">
-                          <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
-                          Preparing...
-                        </div>
-                      ) : conversationUrl ? (
-                        'Join Call'
-                      ) : (
-                        'Join Call'
-                      )}
+                      <div className="btn_text">
+                        {conversationPreparing ? (
+                          <div className="flex items-center gap-2">
+                            <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
+                            Preparing...
+                          </div>
+                        ) : conversationUrl ? (
+                          'Join Call'
+                        ) : (
+                          'Join Call'
+                        )}
+                      </div>
+                      <div className="btn_texture"></div>
                     </button>
-                  </>
-                )}
-              </div>
-              {errors && <div className="mt-3 text-sm terminal-error">{errors}</div>}
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div className="p-4 terminal-border space-y-3 content-container">
-              <div>
-                <div className="text-xs uppercase tracking-wide terminal-text mb-1">You</div>
-                <div className="text-sm terminal-green">{email}</div>
-                <div className="text-xs terminal-text">{duration}-minute session</div>
-                <div className="text-xs terminal-text mt-1">
-                  Timezone: {TIMEZONE_OPTIONS.find(tz => tz.value === timezone)?.label || timezone}
-              </div>
-              </div>
-              <div className="text-xs terminal-text">One assistant persona is used for all durations.</div>
-            </div>
+            {errors && <div className="mt-3 text-sm terminal-error text-center">{errors}</div>}
+          </div>
           </div>
         </div>
       )}
 
       {step === 'call' && (
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl mb-2" style={{ color: 'black' }}>Scheduling Call</h2>
-              <p className="text-sm terminal-text">Book your meeting with Hassaan's AI assistant</p>
+        <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
+          <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
+          <div className="mb-6 w-full">
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-3 -ml-8">
+                <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+              </div>
+              <div className="button-wrapper">
+                <button onClick={() => setStep('haircheck')} className="button">
+                  <div className="btn_text">← Back</div>
+                  <div className="btn_texture"></div>
+                </button>
+              </div>
             </div>
-            <button onClick={() => setStep('haircheck')} className="text-sm underline terminal-text">← Back</button>
+            <div className="text-center mt-4">
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Scheduling Call</h2>
+              <p className="text-sm terminal-text">Book your meeting with Hassaan&apos;s AI assistant</p>
+            </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 items-start">
-            {/* Left: Tavus */}
-            <div className="md:col-span-2 p-4 terminal-border" style={{ background: 'var(--terminal-bg)', boxShadow: '6px 6px 0px 0px var(--color-scheme-1-border)' }}>
+          <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
               {conversationUrl ? (
-                <div className="aspect-video terminal-border rounded overflow-hidden" style={{ background: 'var(--terminal-bg)' }}>
+                <div 
+                  className="aspect-video overflow-hidden relative"
+                  style={{
+                    '--plyr-color-main': 'white',
+                    '--plyr-tab-focus-color': 'transparent',
+                    '--plyr-video-control-color-hover': 'black',
+                    '--plyr-control-icon-size': '1.5em',
+                    '--plyr-range-thumb-height': '0px',
+                    '--plyr-range-track-height': '0.6em',
+                    '--themes--background': 'var(--primatives--pc-plastic-1)',
+                    '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                    '--themes--text': 'var(--primatives--terminal-black)',
+                    '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                    '--primatives--pc-plastic-3': '#b9ae9c',
+                    '--primatives--static-white': 'white',
+                    '--primatives--pc-plastic-2': '#e3dcd1',
+                    '--primatives--bubbletech-4': '#ff6183',
+                    '--primatives--pc-plastic-1': '#f3eee7',
+                    '--primatives--terminal-black': '#140206',
+                    '--themes--border': 'var(--primatives--terminal-black)',
+                    '--themes--foreground': 'var(--primatives--static-white)',
+                    fontFamily: 'var(--_typography---primary-font-family)',
+                    color: 'var(--themes--text)',
+                    fontSize: '1rem',
+                    lineHeight: '1.5',
+                    WebkitFontSmoothing: 'antialiased',
+                    textRendering: 'optimizeLegibility',
+                    boxSizing: 'border-box',
+                    border: '1px solid var(--themes--border)',
+                    backgroundColor: '#f3eee7',
+                    flexFlow: 'column',
+                    width: '100%',
+                    paddingBottom: '.18vw',
+                    display: 'flex',
+                    position: 'relative',
+                    boxShadow: '3.94px 5.91px #000',
+                    paddingLeft: '3px',
+                    paddingRight: '3px'
+                  } as React.CSSProperties}
+                >
                   <Conversation conversationUrl={conversationUrl} onLeave={() => setStep('landing')} />
                 </div>
               ) : (
-                <div className="aspect-video terminal-border rounded overflow-hidden bg-black/5 flex items-center justify-center" style={{ background: 'var(--terminal-bg)' }}>
+                <div 
+                  className="aspect-video overflow-hidden relative bg-black/5 flex items-center justify-center"
+                  style={{
+                    '--plyr-color-main': 'white',
+                    '--plyr-tab-focus-color': 'transparent',
+                    '--plyr-video-control-color-hover': 'black',
+                    '--plyr-control-icon-size': '1.5em',
+                    '--plyr-range-thumb-height': '0px',
+                    '--plyr-range-track-height': '0.6em',
+                    '--themes--background': 'var(--primatives--pc-plastic-1)',
+                    '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                    '--themes--text': 'var(--primatives--terminal-black)',
+                    '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                    '--primatives--pc-plastic-3': '#b9ae9c',
+                    '--primatives--static-white': 'white',
+                    '--primatives--pc-plastic-2': '#e3dcd1',
+                    '--primatives--bubbletech-4': '#ff6183',
+                    '--primatives--pc-plastic-1': '#f3eee7',
+                    '--primatives--terminal-black': '#140206',
+                    '--themes--border': 'var(--primatives--terminal-black)',
+                    '--themes--foreground': 'var(--primatives--static-white)',
+                    fontFamily: 'var(--_typography---primary-font-family)',
+                    color: 'var(--themes--text)',
+                    fontSize: '1rem',
+                    lineHeight: '1.5',
+                    WebkitFontSmoothing: 'antialiased',
+                    textRendering: 'optimizeLegibility',
+                    boxSizing: 'border-box',
+                    border: '1px solid var(--themes--border)',
+                    backgroundColor: '#f3eee7',
+                    flexFlow: 'column',
+                    width: '100%',
+                    paddingBottom: '.18vw',
+                    display: 'flex',
+                    position: 'relative',
+                    boxShadow: '3.94px 5.91px #000',
+                    paddingLeft: '3px',
+                    paddingRight: '3px'
+                  } as React.CSSProperties}
+                >
                   <div className="text-center">
                     <div className="text-6xl mb-3">🎥</div>
                     <div>Loading assistant…</div>
@@ -1032,26 +1088,117 @@ export default function Page() {
                   </div>
                 </div>
               )}
-              {toolError && <div className="mt-3 text-sm text-red-600">{toolError}</div>}
+              {toolError && <div className="mt-3 text-sm text-red-600 text-center">{toolError}</div>}
             </div>
-
-            {/* Right: availability + optional manual booking */}
-            <AvailabilitySidebar
-              slots={slots}
-              loadingSlots={loadingSlots}
-              selectedSlot={selectedSlot}
-              onSlotSelect={(slot) => {
-                setSelectedSlot(slot);
-              }}
-              onBook={confirmAndBook}
-              booking={booking}
-              errors={errors}
-              duration={duration}
-            />
+            
+            <div className="lg:col-span-1">
+              <div 
+                className="h-full overflow-hidden relative mt-3"
+                style={{
+                  '--plyr-color-main': 'white',
+                  '--plyr-tab-focus-color': 'transparent',
+                  '--plyr-video-control-color-hover': 'black',
+                  '--plyr-control-icon-size': '1.5em',
+                  '--plyr-range-thumb-height': '0px',
+                  '--plyr-range-track-height': '0.6em',
+                  '--themes--background': 'var(--primatives--pc-plastic-1)',
+                  '--_typography---primary-font-family': '"Suisse Intl",Arial,sans-serif',
+                  '--themes--text': 'var(--primatives--terminal-black)',
+                  '--_typography---secondary-font-family': 'Perfectlynineties,Georgia,sans-serif',
+                  '--primatives--pc-plastic-3': '#b9ae9c',
+                  '--primatives--static-white': 'white',
+                  '--primatives--pc-plastic-2': '#e3dcd1',
+                  '--primatives--bubbletech-4': '#ff6183',
+                  '--primatives--pc-plastic-1': '#f3eee7',
+                  '--primatives--terminal-black': '#140206',
+                  '--themes--border': 'var(--primatives--terminal-black)',
+                  '--themes--foreground': 'var(--primatives--static-white)',
+                  fontFamily: 'var(--_typography---primary-font-family)',
+                  color: 'var(--themes--text)',
+                  fontSize: '1rem',
+                  lineHeight: '1.5',
+                  WebkitFontSmoothing: 'antialiased',
+                  textRendering: 'optimizeLegibility',
+                  boxSizing: 'border-box',
+                  border: 'none',
+                  backgroundColor: '#f3eee7',
+                  flexFlow: 'column',
+                  width: '100%',
+                  display: 'flex',
+                  position: 'relative',
+                  paddingLeft: '3px',
+                  paddingRight: '3px'
+                } as React.CSSProperties}
+              >
+                <AvailabilitySidebar 
+                  slots={slots} 
+                  loadingSlots={loadingSlots}
+                  selectedSlot={selectedSlot}
+                  onSlotSelect={handleSlotSelect}
+                  onBook={() => confirmAndBook({ 
+                    email, 
+                    start_time: selectedSlot?.start_time, 
+                    duration: 30, 
+                    timezone 
+                  })}
+                  booking={booking}
+                  errors={toolError}
+                  duration={30}
+                />
+              </div>
+            </div>
+          </div>
           </div>
         </div>
       )}
 
+      {step === 'confirm' && (
+        <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
+          <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
+          <div className="mb-6 w-full">
+            <div className="flex items-start gap-3 mb-4 -ml-8">
+              <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+            </div>
+            <div className="text-center">
+              <div className="text-7xl mb-4">✅</div>
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>You&apos;re all set!</h2>
+              <p className="terminal-text">
+                We&apos;ve scheduled your {duration}-minute meeting with Hassaan. A confirmation
+                email will arrive at <span className="terminal-accent">{email}</span>.
+              </p>
+              {bookingInfo?.htmlLink && (
+                <p className="text-xs terminal-text mt-2">
+                  Calendar link:{' '}
+                  <a className="underline terminal-accent" href={bookingInfo.htmlLink} target="_blank" rel="noreferrer">
+                    {bookingInfo.htmlLink}
+                  </a>
+                </p>
+              )}
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <div className="button-wrapper">
+                  <button
+                    className="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setStep('landing');
+                    }}
+                  >
+                    <div className="btn_text">Book another</div>
+                    <div className="btn_texture"></div>
+                  </button>
+                </div>
+                <div className="button-wrapper">
+                  <button className="button" onClick={() => window.print()}>
+                    <div className="btn_text">Print</div>
+                    <div className="btn_texture"></div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating debug panel */}
       <button
