@@ -26,21 +26,23 @@ const TIMEZONE_OPTIONS = [
   { value: 'Pacific/Auckland', label: 'NZST (Auckland)' },
 ];
 
-function extractToolCallPayload(data: any): ToolCallMsg | null {
+function extractToolCallPayload(data: unknown): ToolCallMsg | null {
   if (!data || typeof data !== 'object') return null;
 
+  const dataObj = data as Record<string, unknown>;
+
   // Check for direct tool call format
-  if (data.type === 'conversation.tool_call' && data.tool) {
+  if (dataObj.type === 'conversation.tool_call' && dataObj.tool) {
     return {
-      type: data.type,
-      tool_call_id: data.tool_call_id,
-      tool: data.tool
+      type: dataObj.type as string,
+      tool_call_id: dataObj.tool_call_id as string,
+      tool: dataObj.tool as Record<string, unknown>
     };
   }
 
   // Check for nested tool call format
-  if (data.message_type === 'conversation' && data.event_type === 'conversation.tool_call') {
-    return data.properties || null;
+  if (dataObj.message_type === 'conversation' && dataObj.event_type === 'conversation.tool_call') {
+    return (dataObj.properties as Record<string, unknown>) || null;
   }
 
   return null;
@@ -53,7 +55,7 @@ type ToolCallMsg = {
   event_type?: string;
   message_type?: string;
   tool_call_id?: string;
-  tool?: { name?: string; arguments?: string | Record<string, any> };
+  tool?: { name?: string; arguments?: string | Record<string, unknown> };
   name?: string;
   arguments?: unknown;
 };
@@ -62,7 +64,7 @@ type ToolResult =
   | { ok: true; start_time?: string; htmlLink?: string; hangoutLink?: string }
   | { ok: false; error: string };
 
-function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: string | undefined, result: ToolResult) {
+function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: string | undefined, result: ToolResult): void {
   if (!conversationUrl || !tool_call_id) {
     return;
   }
@@ -85,7 +87,7 @@ function sendToolResultToTavus(conversationUrl: string | null, tool_call_id: str
   }
 }
 
-function safeStringify(v: any) {
+function safeStringify(v: unknown): string {
   try {
     return JSON.stringify(v, null, 2);
   } catch {
@@ -124,10 +126,10 @@ export default function Page() {
 
   // Debug panel state
   const [debugOpen, setDebugOpen] = useState(false);
-  const [logs, setLogs] = useState<{ ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: any }[]>([]);
+  const [logs, setLogs] = useState<{ ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: unknown }[]>([]);
   const [filterToolCalls, setFilterToolCalls] = useState(true);
 
-  const pushLog = useCallback((entry: { ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: any }) => {
+  const pushLog = useCallback((entry: { ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: unknown }) => {
     setLogs((prev) => {
       const next = [entry, ...prev];
       if (next.length > 50) next.length = 50;
@@ -147,7 +149,7 @@ export default function Page() {
   }, [logs]);
 
   // Handle tool calls from Tavus using the built-in hooks
-  const handleTavusToolCall = useCallback(async (toolCall: any, conversationId: string) => {
+  const handleTavusToolCall = useCallback(async (toolCall: Record<string, unknown>, conversationId: string) => {
     console.log('🔧 [TOOL_CALL] Received tool call via Tavus hooks:', { toolCall, conversationId });
     pushLog({ ts: Date.now(), origin: 'tavus-hooks', kind: 'message', note: 'tool_call', data: toolCall });
     
@@ -289,7 +291,7 @@ export default function Page() {
         await videoRef.current.play().catch(() => {});
       }
 
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioCtx = new (window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
@@ -443,8 +445,8 @@ export default function Page() {
       if (!r.ok || !data?.ok) throw new Error(data?.error || 'Booking failed');
       setBookingInfo({ htmlLink: data.htmlLink, hangoutLink: data.hangoutLink });
       setStep('confirm');
-    } catch (e: any) {
-      const msg = e?.message || 'Could not book this time.';
+    } catch (e: unknown) {
+      const msg = (e as Error)?.message || 'Could not book this time.';
       setErrors(msg);
       pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Booking error', data: msg });
     } finally {
@@ -459,7 +461,7 @@ export default function Page() {
         
         // Handle different message formats
         let name: string | undefined;
-        let args: any;
+        let args: Record<string, unknown>;
         let toolCallId: string | undefined;
         
         if (Array.isArray(msg) && msg.length > 0) {
@@ -572,7 +574,7 @@ export default function Page() {
         setBookingInfo({ htmlLink: data.htmlLink, hangoutLink: data.hangoutLink });
         setStep('confirm');
       } finally {
-        if ((msg as any)?.tool_call_id) inFlightToolCalls.current.delete((msg as any).tool_call_id);
+        if ((msg as { tool_call_id?: string })?.tool_call_id) inFlightToolCalls.current.delete((msg as { tool_call_id: string }).tool_call_id);
       }
     },
     [conversationUrl, duration, email, timezone]
@@ -582,7 +584,7 @@ export default function Page() {
   // Keeping this commented out for reference
   /*
   useEffect(() => {
-    function handleAppMessage(event: any) {
+    function handleAppMessage(event: MessageEvent) {
       console.log('🔧 [TOOL_CALL] ===== APP MESSAGE RECEIVED =====')
       
       // The message is directly in the event data
@@ -609,7 +611,7 @@ export default function Page() {
     }
 
     // Handle tool calls from app messages (similar to sample code)
-    async function handleToolCallFromAppMessage(toolCall: any, conversationId: string) {
+    async function handleToolCallFromAppMessage(toolCall: Record<string, unknown>, conversationId: string) {
       
       if (toolCall.name === 'update_calendar') {
         try {
@@ -728,7 +730,7 @@ export default function Page() {
             <div className="text-center">
               <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Hassaan</h2>
               <p className="text-sm terminal-text">
-                I'm Hassaan's assistant. I can schedule a 30-minute meeting for you.
+                I&apos;m Hassaan&apos;s assistant. I can schedule a 30-minute meeting for you.
                 Tell me your email below to get started.
               </p>
             </div>
@@ -886,7 +888,7 @@ export default function Page() {
               </div>
             </div>
             <div className="text-center mt-4">
-              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Meet Hassaan's AI Assistant</h2>
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Meet Hassaan&apos;s AI Assistant</h2>
               <p className="text-sm terminal-text">
                 {!mediaStream 
                   ? 'Initializing camera & microphone...' 
@@ -1011,7 +1013,7 @@ export default function Page() {
             </div>
             <div className="text-center mt-4">
               <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Scheduling Call</h2>
-              <p className="text-sm terminal-text">Book your meeting with Hassaan's AI assistant</p>
+              <p className="text-sm terminal-text">Book your meeting with Hassaan&apos;s AI assistant</p>
             </div>
           </div>
 

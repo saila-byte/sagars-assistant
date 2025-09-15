@@ -147,7 +147,7 @@ export async function POST(req: Request) {
       },
     });
     
-    const busy = (fb.data.calendars?.[calendarId] as any)?.busy;
+    const busy = (fb.data.calendars?.[calendarId] as { busy?: Array<{ start: string; end: string }> })?.busy;
     console.log('[reschedule] Busy periods:', busy);
     
     if (busy && busy.length) {
@@ -213,7 +213,7 @@ export async function POST(req: Request) {
       }
     });
 
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('[reschedule] Error during reschedule:', e);
     console.error('[reschedule] Error details:', {
       message: e?.message,
