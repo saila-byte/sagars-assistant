@@ -703,14 +703,13 @@ export default function Page() {
       {step === 'landing' && (
         <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
           <div className="mb-6 w-full">
-            <div className="flex items-start gap-3 mb-4 -ml-8">
-              <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+            <div className="flex items-start gap-3 mb-4 -ml-1 sm:-ml-2 md:-ml-4 lg:-ml-6 xl:-ml-8">
+              <img src="/tavus-logo.svg" alt="Tavus" className="h-5 sm:h-6 md:h-7 lg:h-8 w-auto" />
             </div>
             <div className="text-center">
-              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Book a {duration}-minute meeting with Hassaan</h2>
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Meet AI Hudson</h2>
               <p className="text-sm terminal-text">
-                I&apos;m Hassaan&apos;s assistant. I can schedule a 30-minute meeting for you.
-                Tell me your email below to get started.
+                I&apos;m Hassaan&apos;s assistant. Let&apos;s chat and get you a meeting booked in with him.
               </p>
             </div>
           </div>
@@ -853,21 +852,13 @@ export default function Page() {
           <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
           <div className="mb-6 w-full">
             <div className="flex items-center justify-between">
-              <div className="flex items-start gap-3 -ml-8">
-                <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+              <div className="flex items-start gap-3 -ml-1 sm:-ml-2 md:-ml-4 lg:-ml-6 xl:-ml-8">
+                <img src="/tavus-logo.svg" alt="Tavus" className="h-5 sm:h-6 md:h-7 lg:h-8 w-auto" />
               </div>
-              <div className="button-wrapper">
-                <button onClick={() => {
-                  setStep('landing');
-                  setConversationPreparing(false);
-                }} className="button">
-                  <div className="btn_text">← Back</div>
-                  <div className="btn_texture"></div>
-                </button>
-              </div>
+              <div></div>
             </div>
             <div className="text-center mt-4">
-              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Meet Hassaan&apos;s AI Assistant</h2>
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Meet AI Hudson</h2>
               <p className="text-sm terminal-text">
                 {!mediaStream 
                   ? 'Initializing camera & microphone...' 
@@ -980,19 +971,14 @@ export default function Page() {
           <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
           <div className="mb-6 w-full">
             <div className="flex items-center justify-between">
-              <div className="flex items-start gap-3 -ml-8">
-                <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+              <div className="flex items-start gap-3 -ml-1 sm:-ml-2 md:-ml-4 lg:-ml-6 xl:-ml-8">
+                <img src="/tavus-logo.svg" alt="Tavus" className="h-5 sm:h-6 md:h-7 lg:h-8 w-auto" />
               </div>
-              <div className="button-wrapper">
-                <button onClick={() => setStep('haircheck')} className="button">
-                  <div className="btn_text">← Back</div>
-                  <div className="btn_texture"></div>
-                </button>
-              </div>
+              <div></div>
             </div>
             <div className="text-center mt-4">
               <h2 className="text-4xl mb-2" style={{ color: 'black' }}>Scheduling Call</h2>
-              <p className="text-sm terminal-text">Book your meeting with Hassaan&apos;s AI assistant</p>
+              <p className="text-sm terminal-text">Book your meeting with AI Hudson</p>
             </div>
           </div>
 
@@ -1157,8 +1143,8 @@ export default function Page() {
         <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
           <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
           <div className="mb-6 w-full">
-            <div className="flex items-start gap-3 mb-4 -ml-8">
-              <img src="/tavus-logo.svg" alt="Tavus" className="h-8 w-auto" />
+            <div className="flex items-start gap-3 mb-4 -ml-1 sm:-ml-2 md:-ml-4 lg:-ml-6 xl:-ml-8">
+              <img src="/tavus-logo.svg" alt="Tavus" className="h-5 sm:h-6 md:h-7 lg:h-8 w-auto" />
             </div>
             <div className="text-center">
               <div className="text-7xl mb-4">✅</div>
@@ -1201,50 +1187,6 @@ export default function Page() {
         </div>
       )}
 
-      {/* Floating debug panel */}
-      <button
-        onClick={() => setDebugOpen((v) => !v)}
-        className="fixed bottom-4 right-4 z-50 rounded-full bg-black text-white text-xs px-3 py-2 shadow-lg"
-      >
-        {debugOpen ? 'Close Debug' : 'Debug'}
-      </button>
-
-      {debugOpen && (
-        <div className="fixed bottom-14 right-4 w-[420px] max-h-[60vh] z-50 bg-white border rounded-xl shadow-xl flex flex-col">
-          <div className="px-3 py-2 border-b flex items-center gap-2">
-            <div className="text-sm">Event Log</div>
-            <label className="ml-auto flex items-center gap-1 text-xs text-zinc-600">
-              <input
-                type="checkbox"
-                checked={filterToolCalls}
-                onChange={(e) => setFilterToolCalls(e.target.checked)}
-              />
-              Show tool-calls only
-            </label>
-            <button className="text-xs underline ml-2" onClick={copyLogs}>Copy</button>
-            <button className="text-xs underline ml-2" onClick={clearLogs}>Clear</button>
-          </div>
-          <div className="p-3 overflow-auto text-xs leading-[1.2] space-y-2">
-            {visibleLogs.length === 0 && <div className="text-zinc-500">No logs yet…</div>}
-            {visibleLogs.map((l, i) => {
-              const ts = new Date(l.ts).toLocaleTimeString();
-              return (
-                <div key={i} className="rounded border p-2">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className={`px-1.5 py-0.5 rounded ${l.kind === 'error' ? 'bg-red-100 text-red-700' : l.kind === 'info' ? 'bg-blue-100 text-blue-700' : 'bg-zinc-100 text-zinc-700'}`}>
-                      {l.kind}
-                    </span>
-                    <span className="text-zinc-500">{ts}</span>
-                    {l.note && <span className="text-zinc-800">• {l.note}</span>}
-                  </div>
-                  <div className="text-zinc-500 mb-1">origin: {l.origin}</div>
-                  <pre className="whitespace-pre-wrap">{safeStringify(l.data)}</pre>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
     </div>
   );
