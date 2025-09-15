@@ -96,6 +96,7 @@ export default function Page() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [avReady, setAvReady] = useState(false);
+  const [micLevel, setMicLevel] = useState(0);
 
   // Tool-call / debug state
   const [toolError, setToolError] = useState<string | null>(null);
@@ -923,7 +924,7 @@ export default function Page() {
                 paddingRight: '3px'
               } as React.CSSProperties}
             >
-              <video ref={videoRef} className="w-full h-full object-cover" muted />
+              <video ref={videoRef} className="w-full h-full object-cover" muted style={{ transform: 'scaleX(-1)' }} />
               
               {!mediaStream ? (
                 <div className="absolute inset-0 flex items-center justify-center">
