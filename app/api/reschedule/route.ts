@@ -216,13 +216,13 @@ export async function POST(req: Request) {
   } catch (e: unknown) {
     console.error('[reschedule] Error during reschedule:', e);
     console.error('[reschedule] Error details:', {
-      message: e?.message,
-      code: e?.code,
-      status: e?.status,
-      response: e?.response?.data
+      message: (e as Error)?.message,
+      code: (e as Record<string, unknown>)?.code,
+      status: (e as Record<string, unknown>)?.status,
+      response: ((e as Record<string, unknown>)?.response as Record<string, unknown>)?.data
     });
     return NextResponse.json({ 
-      error: e?.message || 'unknown error' 
+      error: (e as Error)?.message || 'unknown error' 
     }, { status: 500 });
   }
 }

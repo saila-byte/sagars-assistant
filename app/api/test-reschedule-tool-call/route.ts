@@ -42,10 +42,10 @@ export async function POST(req: Request) {
       status: response.status
     });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('🧪 [TEST] Error:', error);
     return NextResponse.json({
-      error: error.message || 'Unknown error',
+      error: (error as Error)?.message || 'Unknown error',
       details: error.toString()
     }, { status: 500 });
   }

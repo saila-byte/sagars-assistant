@@ -173,7 +173,7 @@ export async function POST(req: Request) {
       htmlLink: data.htmlLink,
       hangoutLink: data.hangoutLink,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Unknown error' }, { status: 500 });
+  } catch (e: unknown) {
+    return NextResponse.json({ error: (e as Error)?.message || 'Unknown error' }, { status: 500 });
   }
 }

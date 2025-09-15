@@ -26,27 +26,6 @@ const TIMEZONE_OPTIONS = [
   { value: 'Pacific/Auckland', label: 'NZST (Auckland)' },
 ];
 
-function extractToolCallPayload(data: unknown): ToolCallMsg | null {
-  if (!data || typeof data !== 'object') return null;
-
-  const dataObj = data as Record<string, unknown>;
-
-  // Check for direct tool call format
-  if (dataObj.type === 'conversation.tool_call' && dataObj.tool) {
-    return {
-      type: dataObj.type as string,
-      tool_call_id: dataObj.tool_call_id as string,
-      tool: dataObj.tool as Record<string, unknown>
-    };
-  }
-
-  // Check for nested tool call format
-  if (dataObj.message_type === 'conversation' && dataObj.event_type === 'conversation.tool_call') {
-    return (dataObj.properties as Record<string, unknown>) || null;
-  }
-
-  return null;
-}
 
 type Slot = { start_time: string; scheduling_url: string | null };
 
@@ -116,7 +95,6 @@ export default function Page() {
   // Haircheck state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-  const [micLevel, setMicLevel] = useState<number>(0);
   const [avReady, setAvReady] = useState(false);
 
   // Tool-call / debug state
@@ -286,7 +264,7 @@ export default function Page() {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       setMediaStream(stream);
       if (videoRef.current) {
-        // @ts-ignore
+        // @ts-expect-error - srcObject is a valid property for video elements
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
       }
@@ -1183,9 +1161,9 @@ export default function Page() {
             </div>
             <div className="text-center">
               <div className="text-7xl mb-4">✅</div>
-              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>You're all set!</h2>
+              <h2 className="text-4xl mb-2" style={{ color: 'black' }}>You&apos;re all set!</h2>
               <p className="terminal-text">
-                We've scheduled your {duration}-minute meeting with Hassaan. A confirmation
+                We&apos;ve scheduled your {duration}-minute meeting with Hassaan. A confirmation
                 email will arrive at <span className="terminal-accent">{email}</span>.
               </p>
               {bookingInfo?.htmlLink && (

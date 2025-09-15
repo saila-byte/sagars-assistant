@@ -41,8 +41,8 @@ export async function GET() {
     });
   } catch (error: unknown) {
     return NextResponse.json({ 
-      error: error.message,
-      details: error.toString()
+      error: (error as Error)?.message || 'Unknown error',
+      details: String(error)
     }, { status: 500 });
   }
 }

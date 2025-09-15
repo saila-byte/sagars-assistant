@@ -30,7 +30,7 @@ export async function GET() {
   } catch (error: unknown) {
     return NextResponse.json({
       connected: false,
-      error: error.message,
+      error: (error as Error)?.message || 'Unknown error',
       message: 'Error checking OAuth status'
     }, { status: 500 });
   }

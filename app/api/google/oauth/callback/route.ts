@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 
   const { tokens } = await oauth2.getToken(code);
-  await setTokens(tokens);
+  await setTokens(tokens as Record<string, unknown>);
 
   return new NextResponse(
     `<html><body style="font:14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
