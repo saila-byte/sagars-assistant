@@ -65,7 +65,7 @@ async function fetchUserEvents(userEmail: string): Promise<string> {
     return `User's upcoming meetings:\n${formattedEvents}`;
   } catch (error) {
     console.error('🔍 [TEST] Error fetching user events:', error);
-    return `Unable to fetch user events: ${error.message || error}`;
+    return `Unable to fetch user events: ${(error as Error)?.message || String(error)}`;
   }
 }
 
@@ -86,7 +86,7 @@ async function fetchAvailability(timezone: string): Promise<string> {
     
     if (data.slots && data.slots.length > 0) {
       // Group slots by day for better organization
-      const slotsByDay = data.slots.reduce((acc: any, slot: any) => {
+      const slotsByDay = data.slots.reduce((acc: Record<string, Array<{ start_time: string }>>, slot: { start_time: string }) => {
         const date = new Date(slot.start_time);
         const dayKey = date.toLocaleDateString('en-US', { 
           weekday: 'short', 
@@ -100,8 +100,8 @@ async function fetchAvailability(timezone: string): Promise<string> {
       }, {});
 
       // Format each day's slots
-      const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]: [string, any]) => {
-        const times = daySlots.slice(0, 3).map((slot: any) => 
+      const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]) => {
+        const times = (daySlots as Array<{ start_time: string }>).slice(0, 3).map((slot: { start_time: string }) => 
           new Date(slot.start_time).toLocaleTimeString('en-US', { 
             hour: 'numeric', 
             minute: '2-digit',
@@ -188,10 +188,10 @@ Available times for new bookings: ${availability}`;
       contextLength: conversationalContext.length
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('🔍 [TEST] Error:', error);
     return NextResponse.json({ 
-      error: error.message || 'Unknown error',
+      error: (error as Error)?.message || 'Unknown error',
       details: error.toString()
     }, { status: 500 });
   }

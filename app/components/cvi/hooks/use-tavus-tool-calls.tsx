@@ -9,7 +9,7 @@ export type ToolCallMsg = {
   tool_call_id: string;
   tool: {
     name: string;
-    arguments: any;
+    arguments: Record<string, unknown>;
   };
 };
 

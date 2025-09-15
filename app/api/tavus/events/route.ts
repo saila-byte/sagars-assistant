@@ -221,10 +221,10 @@ export async function POST(req: Request) {
       });
     }
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[tavus.events] Error processing callback:', error);
     return NextResponse.json(
-      { error: 'Failed to process callback', details: error.message },
+      { error: 'Failed to process callback', details: (error as Error)?.message || 'Unknown error' },
       { status: 500 }
     );
   }

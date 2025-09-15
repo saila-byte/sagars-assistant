@@ -102,7 +102,7 @@ export function AvailabilitySidebar({
   };
 
   return (
-    <div className="p-4 terminal-border space-y-4 content-container">
+    <div className="p-4 space-y-4 content-container" style={{ border: '2px solid #000000', borderRadius: '0px' }}>
       <div>
         <div className="text-xs uppercase tracking-wide terminal-text mb-3">
           Available Times ({dayGroups.length} days)
@@ -110,7 +110,7 @@ export function AvailabilitySidebar({
         
         {loadingSlots && (
           <div className="text-sm terminal-text flex items-center gap-2">
-            <div className="animate-spin w-4 h-4 border-2 terminal-border border-t-terminal-green rounded-full"></div>
+            <div className="animate-spin w-4 h-4 border-2 terminal-border rounded-full" style={{ borderTopColor: '#9E94C8' }}></div>
             Loading times…
           </div>
         )}
@@ -127,13 +127,13 @@ export function AvailabilitySidebar({
                 dayGroup.slots.some(slot => slot.start_time === selectedSlot.start_time);
               
               return (
-                <div key={dayGroup.date} className="terminal-border rounded overflow-hidden">
+                <div key={dayGroup.date} className="overflow-hidden" style={{ border: '2px solid #000000', borderRadius: '0px' }}>
                   <button
                     onClick={() => toggleDay(dayGroup.date)}
                     className={`w-full px-3 py-2 text-left flex items-center justify-between hover:opacity-80 transition-colors ${
-                      hasSelectedSlot ? 'terminal-green' : 'terminal-text'
+                      hasSelectedSlot ? 'terminal-text' : 'terminal-text'
                     }`}
-                    style={{ background: hasSelectedSlot ? 'var(--terminal-green)' : 'transparent', color: hasSelectedSlot ? 'var(--terminal-bg)' : 'var(--terminal-text)' }}
+                    style={{ background: hasSelectedSlot ? '#9E94C8' : 'transparent', color: hasSelectedSlot ? 'var(--terminal-bg)' : 'var(--terminal-text)' }}
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">
@@ -145,7 +145,7 @@ export function AvailabilitySidebar({
                     </div>
                     <div className="flex items-center gap-2">
                       {hasSelectedSlot && (
-                        <div className="w-2 h-2 rounded-full" style={{ background: hasSelectedSlot ? 'var(--terminal-bg)' : 'var(--terminal-green)' }}></div>
+                        <div className="w-2 h-2 rounded-full" style={{ background: hasSelectedSlot ? 'var(--terminal-bg)' : '#9E94C8' }}></div>
                       )}
                       <svg
                         className={`w-4 h-4 transition-transform ${
@@ -162,7 +162,7 @@ export function AvailabilitySidebar({
                   </button>
                   
                   {isExpanded && (
-                    <div className="terminal-border" style={{ borderTop: '1px solid var(--terminal-green)', background: 'var(--terminal-bg)' }}>
+                    <div style={{ borderTop: '1px solid #000000', background: 'var(--terminal-bg)' }}>
                       <div className="p-3 grid grid-cols-2 gap-2">
                         {dayGroup.slots.map((slot) => {
                           const isSelected = selectedSlot?.start_time === slot.start_time;
@@ -174,9 +174,9 @@ export function AvailabilitySidebar({
                                 isSelected ? 'terminal-glow' : ''
                               }`}
                               style={{
-                                background: isSelected ? 'var(--terminal-green)' : 'var(--terminal-bg)',
-                                color: isSelected ? 'var(--terminal-bg)' : 'var(--terminal-green)',
-                                border: '1px solid var(--terminal-green)'
+                                background: isSelected ? '#9E94C8' : 'var(--terminal-bg)',
+                                color: isSelected ? '#ffffff' : '#000000',
+                                border: '1px solid #9E94C8'
                               }}
                             >
                               {formatTime(slot.start_time)}
@@ -192,16 +192,23 @@ export function AvailabilitySidebar({
           </div>
         )}
 
-        <button
-          disabled={!selectedSlot || booking}
-          onClick={onBook}
-          className="w-full mt-4 terminal-button px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {booking ? 'Booking…' : selectedSlot ? 'Confirm & Book' : 'Select a time to continue'}
-        </button>
+        <div className="w-full mt-4 flex justify-center">
+          <div className="button-wrapper">
+            <button
+              disabled={!selectedSlot || booking}
+              onClick={onBook}
+              className="button px-8 py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="btn_text">
+                {booking ? 'Booking…' : selectedSlot ? 'Confirm & Book' : 'Select a time to continue'}
+              </div>
+              <div className="btn_texture"></div>
+            </button>
+          </div>
+        </div>
 
         {errors && (
-          <div className="mt-3 p-3 terminal-border rounded" style={{ background: 'var(--terminal-bg)', borderColor: 'var(--terminal-error)' }}>
+          <div className="mt-3 p-3" style={{ background: 'var(--terminal-bg)', border: '2px solid #000000', borderRadius: '0px' }}>
             <div className="text-sm terminal-error">{errors}</div>
           </div>
         )}

@@ -4,7 +4,7 @@ import { google } from 'googleapis';
 
 const TOKENS_FILE = path.join(process.cwd(), '.google-tokens.json');
 
-export async function setTokens(t: any) {
+export async function setTokens(t: Record<string, unknown>) {
   try {
     await fs.writeFile(TOKENS_FILE, JSON.stringify(t, null, 2));
     console.log('[googleTokens] Tokens saved to file');

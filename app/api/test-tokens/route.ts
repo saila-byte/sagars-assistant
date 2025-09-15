@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       message: 'Tokens set manually',
       hasTokens: !!currentTokens
     });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: (error as Error)?.message || 'Unknown error' }, { status: 500 });
   }
 }

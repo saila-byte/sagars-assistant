@@ -31,12 +31,11 @@ const findUserAssistantEvents = async (userEmail: string) => {
     maxResults: 50 // Reasonable limit for future events
   });
   
-  // Filter for events where user is attendee and was booked via assistant
+  // Filter for events where user is attendee (show ALL future events, not just assistant-booked)
   const userMeetings = response.data.items?.filter(event => 
     event.attendees?.some(attendee => 
       attendee.email === userEmail && attendee.responseStatus !== 'declined'
-    ) &&
-    event.description?.includes('Booked via Hassaan\'s assistant')
+    )
   ) || [];
   
   return userMeetings;
@@ -148,7 +147,7 @@ export async function POST(req: Request) {
       },
     });
     
-    const busy = (fb.data.calendars?.[calendarId] as any)?.busy;
+    const busy = (fb.data.calendars?.[calendarId] as { busy?: Array<{ start: string; end: string }> })?.busy;
     console.log('[reschedule] Busy periods:', busy);
     
     if (busy && busy.length) {
@@ -214,16 +213,16 @@ export async function POST(req: Request) {
       }
     });
 
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('[reschedule] Error during reschedule:', e);
     console.error('[reschedule] Error details:', {
-      message: e?.message,
-      code: e?.code,
-      status: e?.status,
-      response: e?.response?.data
+      message: (e as Error)?.message,
+      code: (e as Record<string, unknown>)?.code,
+      status: (e as Record<string, unknown>)?.status,
+      response: ((e as Record<string, unknown>)?.response as Record<string, unknown>)?.data
     });
     return NextResponse.json({ 
-      error: e?.message || 'unknown error' 
+      error: (e as Error)?.message || 'unknown error' 
     }, { status: 500 });
   }
 }

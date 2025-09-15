@@ -92,7 +92,7 @@ async function fetchAvailability(timezone: string): Promise<string> {
     
     if (data.slots && data.slots.length > 0) {
       // Group slots by day for better organization
-      const slotsByDay = data.slots.reduce((acc: any, slot: any) => {
+      const slotsByDay = data.slots.reduce((acc: Record<string, Array<{ start_time: string }>>, slot: { start_time: string }) => {
         const date = new Date(slot.start_time);
         const dayKey = date.toLocaleDateString('en-US', { 
           weekday: 'short', 
@@ -106,8 +106,8 @@ async function fetchAvailability(timezone: string): Promise<string> {
       }, {});
 
       // Format each day's slots - show ALL times for conversation context
-      const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]: [string, any]) => {
-        const times = daySlots.map((slot: any) => 
+      const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]) => {
+        const times = (daySlots as Array<{ start_time: string }>).map((slot: { start_time: string }) => 
           new Date(slot.start_time).toLocaleTimeString('en-US', { 
             hour: 'numeric', 
             minute: '2-digit',
@@ -161,7 +161,7 @@ export async function POST(req: Request) {
     if (body.slots && body.slots.length > 0) {
       
       // Use slots provided from frontend - reuse the same formatting logic as fetchAvailability
-      const slotsByDay = body.slots.reduce((acc: any, slot: any) => {
+      const slotsByDay = body.slots.reduce((acc: Record<string, Array<{ start_time: string }>>, slot: { start_time: string }) => {
         const date = new Date(slot.start_time);
         const dayKey = date.toLocaleDateString('en-US', { 
           weekday: 'short', 
@@ -175,8 +175,8 @@ export async function POST(req: Request) {
       }, {});
 
       // Format each day's slots - show ALL times for conversation context
-      const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]: [string, any]) => {
-        const times = daySlots.map((slot: any) => 
+      const dayTexts = Object.entries(slotsByDay).map(([day, daySlots]) => {
+        const times = (daySlots as Array<{ start_time: string }>).map((slot: { start_time: string }) => 
           new Date(slot.start_time).toLocaleTimeString('en-US', { 
             hour: 'numeric', 
             minute: '2-digit',
@@ -255,7 +255,7 @@ Available times for new bookings: ${availability}`,
       );
     }
 
-    let data: any = {};
+    let data: Record<string, unknown> = {};
     try {
       data = JSON.parse(text);
     } catch (e) {
@@ -266,7 +266,7 @@ Available times for new bookings: ${availability}`,
     }
 
     const conversationUrl: string | undefined =
-      data?.conversation_url || data?.conversationUrl;
+      (data?.conversation_url as string) || (data?.conversationUrl as string);
 
     if (!conversationUrl) {
       return NextResponse.json(
@@ -275,7 +275,7 @@ Available times for new bookings: ${availability}`,
       );
     }
     return NextResponse.json({ conversationUrl }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[tavus.start] unexpected', err);
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
   }
