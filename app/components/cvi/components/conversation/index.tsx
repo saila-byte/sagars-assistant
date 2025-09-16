@@ -105,7 +105,9 @@ export const Conversation = React.memo(({ onLeave, conversationUrl }: Conversati
 	const { hasMicError } = useDevices()
 
 	useEffect(() => {
+		console.log('🔍 [CONVERSATION] Meeting state changed:', meetingState);
 		if (meetingState === 'error') {
+			console.log('❌ [CONVERSATION] Meeting error detected, calling onLeave');
 			onLeave();
 		}
 	}, [meetingState, onLeave]);

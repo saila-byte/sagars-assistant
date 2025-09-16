@@ -179,6 +179,29 @@ export async function POST(req: Request) {
           const rescheduleData = await rescheduleResponse.json();
           console.log('[tavus.events] Reschedule response:', rescheduleData);
           
+          // Send echo message for reschedule
+          if (rescheduleData.ok) {
+            const attendeeName = args.userEmail?.split('@')[0] || 'you';
+            const newStartTime = new Date(rescheduleData.newEvent?.start?.dateTime || rescheduleData.newEvent?.start?.date);
+            const timeString = newStartTime.toLocaleString('en-US', {
+              timeZone: args.timezone || 'America/Los_Angeles',
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              timeZoneName: 'short'
+            });
+            
+            const echoMessage = `I successfully rescheduled your meeting with ${attendeeName} to ${timeString}.`;
+            console.log('🔊 [ECHO] Sending reschedule echo message:', echoMessage);
+            
+            // Send echo message back to Tavus
+            // Note: This would need to be implemented with proper Tavus echo API call
+            // For now, we'll just log it
+          }
+          
           return NextResponse.json({ 
             success: true, 
             message: 'Tool call processed and meeting rescheduled',

@@ -79,6 +79,11 @@ export default function Page() {
   const duration = 30; // Only 30-minute meetings
 
   const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('landing');
+  
+  // Debug step changes
+  useEffect(() => {
+    console.log('🔄 [STEP_CHANGE] Step changed to:', step);
+  }, [step]);
   const [email, setEmail] = useState('ashish@tavus.io');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
   const [errors, setErrors] = useState<string | null>(null);
@@ -220,10 +225,13 @@ export default function Page() {
         });
         
         setBookingInfo({ htmlLink: bookingData.htmlLink, hangoutLink: bookingData.hangoutLink });
-        setStep('confirm');
         
-        // Clean up conversation after successful booking
-        setConversationUrl(null);
+        // Delay transition to allow echo message to be heard
+        setTimeout(async () => {
+          setStep('confirm');
+          // Clean up conversation and call
+          await cleanupCall(conversationId);
+        }, 6000); // 6 second delay to allow echo message to be spoken
         
       } catch (error) {
         console.error('Error handling update_calendar tool call:', error);
@@ -232,10 +240,50 @@ export default function Page() {
           error: `Failed to book meeting: ${error instanceof Error ? error.message : 'Unknown error'}`
         });
       }
+    } else if (toolCall.name === 'reschedule_meeting') {
+      // Handle reschedule - this will be processed by the events API
+      console.log('🔧 [TOOL_CALL] Reschedule meeting tool call received:', toolCall);
+      
+      // Parse arguments to get reschedule details
+      const args = typeof toolCall.arguments === 'string' 
+        ? JSON.parse(toolCall.arguments) 
+        : toolCall.arguments;
+      
+      const attendeeName = args.userEmail?.split('@')[0] || 'you';
+      const newStartTime = new Date(args.newStartTime);
+      const timeString = newStartTime.toLocaleString('en-US', {
+        timeZone: args.timezone || 'America/Los_Angeles',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      });
+      
+      // Send echo message for reschedule
+      const echoMessage = `I successfully rescheduled your meeting with ${attendeeName} to ${timeString}.`;
+      console.log('🔊 [ECHO] Sending reschedule echo message:', echoMessage);
+      
+      tavusToolCalls.interruptReplica(conversationId);
+      tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
+      
+      tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+        ok: true,
+        message: 'Reschedule request received'
+      });
+
+      // Delay transition to allow echo message to be heard
+      setTimeout(async () => {
+        setStep('confirm');
+        // Clean up conversation and call
+        await cleanupCall(conversationId);
+      }, 6000); // 6 second delay to allow echo message to be spoken
     } else if (toolCall.name === 'end_call') {
       // Handle call ending
       setStep('landing');
-      setConversationUrl(null);
+      await cleanupCall(conversationId);
       tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
         ok: true
       });
@@ -244,6 +292,23 @@ export default function Page() {
 
   // Initialize Tavus tool calls hook
   const tavusToolCalls = useTavusToolCalls(handleTavusToolCall);
+
+  // Cleanup function for leaving calls
+  const cleanupCall = useCallback(async (conversationId?: string) => {
+    console.log('🧹 [CLEANUP] Cleaning up call and conversation', { conversationId, currentConversationUrl: conversationUrl });
+    
+    // End Tavus conversation if we have a conversation ID
+    if (conversationId) {
+      await tavusToolCalls.endConversation(conversationId);
+    }
+    
+    // Clear conversation state
+    console.log('🧹 [CLEANUP] Clearing conversation state');
+    setConversationUrl(null);
+    setConversationPreparing(false);
+    
+    console.log('🧹 [CLEANUP] Cleanup complete');
+  }, [tavusToolCalls, conversationUrl]);
 
   useEffect(() => {
     const last = localStorage.getItem('booking_last_email');
@@ -306,6 +371,13 @@ export default function Page() {
   }
 
   async function goToCall() {
+    console.log('🔍 [GO_TO_CALL] State check:', { 
+      avReady, 
+      conversationPreparing, 
+      conversationUrl, 
+      step 
+    });
+    
     if (!avReady) {
       setErrors('Please allow camera & mic to continue.');
       return;
@@ -315,10 +387,32 @@ export default function Page() {
       return;
     }
     if (!conversationUrl) {
-      setErrors('Conversation not ready yet. Please wait a moment and try again.');
+      console.log('🔍 [GO_TO_CALL] No conversation URL, triggering preparation...');
+      // Try to prepare conversation if not already preparing
+      if (!conversationPreparing) {
+        await prepareConversation();
+        // Wait a moment for the conversation to be prepared
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Check again after preparation
+        if (!conversationUrl) {
+          setErrors('Conversation not ready yet. Please wait a moment and try again.');
+          return;
+        }
+      } else {
+        setErrors('Conversation not ready yet. Please wait a moment and try again.');
+        return;
+      }
+    }
+    
+    // Validate conversation URL format
+    if (!conversationUrl.startsWith('https://tavus.daily.co/')) {
+      console.error('🔍 [GO_TO_CALL] Invalid conversation URL format:', conversationUrl);
+      setErrors('Invalid conversation URL. Please try again.');
       return;
     }
+    
     // Use pre-prepared URL
+    console.log('🔍 [GO_TO_CALL] Proceeding to call with conversation:', conversationUrl);
     setStep('call');
     pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Using pre-prepared conversation', data: { conversationUrl } });
   }
@@ -351,24 +445,43 @@ export default function Page() {
 
   // -------- Conversation preparation --------
   const prepareConversation = useCallback(async () => {
-    if (conversationPreparing || conversationUrl) return;
+    console.log('🔍 [PREPARE_CONVERSATION] Starting preparation:', { 
+      conversationPreparing, 
+      conversationUrl, 
+      email, 
+      timezone, 
+      slotsLength: slots.length 
+    });
+    
+    if (conversationPreparing || conversationUrl) {
+      console.log('🔍 [PREPARE_CONVERSATION] Skipping - already preparing or has URL');
+      return;
+    }
+    
     setConversationPreparing(true);
     try {
+      console.log('🔍 [PREPARE_CONVERSATION] Calling /api/tavus/start...');
       const res = await fetch('/api/tavus/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, timezone, slots }),
       });
       const payload = await res.json();
+      console.log('🔍 [PREPARE_CONVERSATION] API response:', payload);
       const { conversationUrl: newConversationUrl } = payload;
       if (newConversationUrl) {
         setConversationUrl(newConversationUrl);
+        console.log('🔍 [PREPARE_CONVERSATION] Conversation URL set:', newConversationUrl);
         pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Conversation prepared in background', data: { conversationUrl: newConversationUrl } });
+      } else {
+        console.log('🔍 [PREPARE_CONVERSATION] No conversation URL in response');
       }
     } catch (e) {
+      console.error('🔍 [PREPARE_CONVERSATION] Error:', e);
       pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Failed to prepare conversation', data: String(e) });
     } finally {
       setConversationPreparing(false);
+      console.log('🔍 [PREPARE_CONVERSATION] Preparation complete');
     }
   }, [conversationPreparing, conversationUrl, email, timezone, slots, pushLog]);
 
@@ -381,8 +494,20 @@ export default function Page() {
 
   // Prepare conversation when camera is ready AND availability is loaded
   useEffect(() => {
+    console.log('🔍 [CONVERSATION_TRIGGER] Checking conditions:', {
+      avReady,
+      conversationUrl,
+      conversationPreparing,
+      loadingSlots,
+      slotsLength: slots.length,
+      step
+    });
+    
     if (avReady && !conversationUrl && !conversationPreparing && !loadingSlots && slots.length >= 0) {
+      console.log('🔍 [CONVERSATION_TRIGGER] All conditions met, triggering preparation');
       prepareConversation();
+    } else {
+      console.log('🔍 [CONVERSATION_TRIGGER] Conditions not met, skipping');
     }
   }, [avReady, conversationUrl, conversationPreparing, loadingSlots, slots, prepareConversation]);
 
@@ -1028,7 +1153,11 @@ export default function Page() {
                     paddingRight: '3px'
                   } as React.CSSProperties}
                 >
-                  <Conversation conversationUrl={conversationUrl} onLeave={() => setStep('landing')} />
+                  <Conversation conversationUrl={conversationUrl} onLeave={async () => {
+                    console.log('🚪 [CONVERSATION_LEAVE] Conversation component calling onLeave');
+                    await cleanupCall();
+                    setStep('landing');
+                  }} />
                 </div>
               ) : (
                 <div 
@@ -1168,18 +1297,17 @@ export default function Page() {
                 <div className="button-wrapper">
                   <button
                     className="button"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.preventDefault();
+                      console.log('🔄 [BOOK_ANOTHER] Button clicked, starting cleanup');
                       setStep('landing');
+                      // Clean up any existing conversation and call
+                      await cleanupCall();
+                      setBookingInfo(null);
+                      console.log('🔄 [BOOK_ANOTHER] Cleanup complete, state reset');
                     }}
                   >
                     <div className="btn_text">Book another</div>
-                    <div className="btn_texture"></div>
-                  </button>
-                </div>
-                <div className="button-wrapper">
-                  <button className="button" onClick={() => window.print()}>
-                    <div className="btn_text">Print</div>
                     <div className="btn_texture"></div>
                   </button>
                 </div>

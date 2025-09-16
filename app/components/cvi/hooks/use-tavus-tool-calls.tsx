@@ -113,10 +113,36 @@ export const useTavusToolCalls = (
     });
   }, [sendAppMessage]);
 
+  // End conversation
+  const endConversation = useCallback(async (conversationId: string) => {
+    console.log('🔚 [END] Ending conversation:', conversationId);
+    
+    try {
+      const response = await fetch(`/api/tavus/end-conversation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversation_id: conversationId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to end conversation: ${response.statusText}`);
+      }
+
+      console.log('🔚 [END] Conversation ended successfully');
+    } catch (error) {
+      console.error('🔚 [END] Error ending conversation:', error);
+    }
+  }, []);
+
   return {
     sendToolResult,
     updateContext,
     interruptReplica,
-    sendEcho
+    sendEcho,
+    endConversation
   };
 };
