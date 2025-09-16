@@ -222,6 +222,9 @@ export default function Page() {
         setBookingInfo({ htmlLink: bookingData.htmlLink, hangoutLink: bookingData.hangoutLink });
         setStep('confirm');
         
+        // Clean up conversation after successful booking
+        setConversationUrl(null);
+        
       } catch (error) {
         console.error('Error handling update_calendar tool call:', error);
         tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
