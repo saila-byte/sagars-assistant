@@ -706,7 +706,7 @@ export default function Page() {
       {step === 'landing' && (
         <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
           <div className="mb-6 w-full">
-            <div className="flex items-start gap-3 mb-4 -ml-1 sm:-ml-2 md:-ml-4 lg:-ml-6 xl:-ml-8">
+            <div className="flex items-start gap-3 mb-4 pl-2 -ml-2 sm:-ml-3 md:-ml-5 lg:-ml-7 xl:-ml-10">
               <img src="/tavus-logo.svg" alt="Tavus" className="h-5 sm:h-6 md:h-7 lg:h-8 w-auto" />
             </div>
             <div className="text-center">
@@ -855,7 +855,7 @@ export default function Page() {
           <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
           <div className="mb-6 w-full">
             <div className="flex items-center justify-between">
-              <div className="flex items-start gap-3 -ml-1 sm:-ml-2 md:-ml-4 lg:-ml-6 xl:-ml-8">
+              <div className="flex items-start gap-3 pl-2 -ml-2 sm:-ml-3 md:-ml-5 lg:-ml-7 xl:-ml-10">
                 <img src="/tavus-logo.svg" alt="Tavus" className="h-5 sm:h-6 md:h-7 lg:h-8 w-auto" />
               </div>
               <div></div>
@@ -974,7 +974,7 @@ export default function Page() {
           <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
           <div className="mb-6 w-full">
             <div className="flex items-center justify-between">
-              <div className="flex items-start gap-3 -ml-1 sm:-ml-2 md:-ml-4 lg:-ml-6 xl:-ml-8">
+              <div className="flex items-start gap-3 pl-2 -ml-2 sm:-ml-3 md:-ml-5 lg:-ml-7 xl:-ml-10">
                 <img src="/tavus-logo.svg" alt="Tavus" className="h-5 sm:h-6 md:h-7 lg:h-8 w-auto" />
               </div>
               <div></div>
@@ -1146,7 +1146,7 @@ export default function Page() {
         <div className="min-h-screen terminal-scanlines" style={{ background: 'rgba(255, 255, 255, 0.1)', color: 'var(--terminal-text)' }}>
           <div className="max-w-7xl mx-auto px-2 py-10 flex flex-col items-center">
           <div className="mb-6 w-full">
-            <div className="flex items-start gap-3 mb-4 -ml-1 sm:-ml-2 md:-ml-4 lg:-ml-6 xl:-ml-8">
+            <div className="flex items-start gap-3 mb-4 pl-2 -ml-2 sm:-ml-3 md:-ml-5 lg:-ml-7 xl:-ml-10">
               <img src="/tavus-logo.svg" alt="Tavus" className="h-5 sm:h-6 md:h-7 lg:h-8 w-auto" />
             </div>
             <div className="text-center">
