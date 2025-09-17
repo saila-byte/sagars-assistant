@@ -210,7 +210,7 @@ export default function Page() {
         });
         
         // Send echo message to Tavus
-        const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
+        const echoMessage = `The meeting is booked and you will see the calendar invite in your inbox shortly. Have a great rest of your day!`;
         
         tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
         
