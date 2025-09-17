@@ -30,7 +30,13 @@ export const useCVICall = (): {
 					},
 				},
 			}).catch((error) => {
-
+				console.error('❌ [CVI_CALL] Failed to join Daily.co call:', error);
+				console.error('❌ [CVI_CALL] Error details:', {
+					message: error.message,
+					code: error.code,
+					url: url,
+					dailyReady: !!daily
+				});
 			});
 		},
 		[daily]

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Conversation } from './components/cvi/components/conversation';
 import { AvailabilitySidebar } from './components/availability-sidebar';
 import { useTavusToolCalls } from './components/cvi/hooks/use-tavus-tool-calls';
+import { useCVICall } from './components/cvi/hooks/use-cvi-call';
 
 // ---------- helpers ----------
 // Removed useMeetingDuration - only 30-minute meetings
@@ -80,16 +81,13 @@ export default function Page() {
 
   const [step, setStep] = useState<'landing' | 'haircheck' | 'call' | 'confirm'>('landing');
   
-  // Debug step changes
-  useEffect(() => {
-    console.log('🔄 [STEP_CHANGE] Step changed to:', step);
-  }, [step]);
   const [email, setEmail] = useState('ashish@tavus.io');
   const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
   const [errors, setErrors] = useState<string | null>(null);
   const [remembered, setRemembered] = useState<string | null>(null);
   const [conversationUrl, setConversationUrl] = useState<string | null>(null);
   const [conversationPreparing, setConversationPreparing] = useState(false);
+  const [preventConversationCreation, setPreventConversationCreation] = useState(false);
 
   // Availability UI (optional manual booking)
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -112,6 +110,7 @@ export default function Page() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [logs, setLogs] = useState<{ ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: unknown }[]>([]);
   const [filterToolCalls, setFilterToolCalls] = useState(true);
+
 
   const pushLog = useCallback((entry: { ts: number; origin: string; kind: 'message' | 'info' | 'error'; note?: string; data?: unknown }) => {
     setLogs((prev) => {
@@ -212,7 +211,6 @@ export default function Page() {
         
         // Send echo message to Tavus
         const echoMessage = `I successfully scheduled a meeting with ${attendeeName} for ${timeString}.`;
-        console.log('🔊 [ECHO] Sending echo message:', echoMessage);
         
         tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
         
@@ -228,9 +226,32 @@ export default function Page() {
         
         // Delay transition to allow echo message to be heard
         setTimeout(async () => {
-          setStep('confirm');
-          // Clean up conversation and call
+          // End Tavus conversation via API
+          await endTavusConversation(conversationId);
+          
+          // Clean up conversation and call FIRST, wait for completion
           await cleanupCall(conversationId);
+          
+          // Clear all state variables to prevent stale data
+          setBookingInfo(null);
+          setConversationUrl(null);
+          setConversationPreparing(false);
+          setPreventConversationCreation(true);
+          setErrors(null);
+          setToolError(null);
+          setMicLevel(0);
+          setAvReady(false);
+          setMediaStream(null);
+          inFlightToolCalls.current.clear();
+          
+          // Stop any existing media tracks
+          if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+            setMediaStream(null);
+          }
+          
+          // Only transition to confirm page after cleanup is complete
+          setStep('confirm');
         }, 6000); // 6 second delay to allow echo message to be spoken
         
       } catch (error) {
@@ -240,75 +261,115 @@ export default function Page() {
           error: `Failed to book meeting: ${error instanceof Error ? error.message : 'Unknown error'}`
         });
       }
-    } else if (toolCall.name === 'reschedule_meeting') {
-      // Handle reschedule - this will be processed by the events API
-      console.log('🔧 [TOOL_CALL] Reschedule meeting tool call received:', toolCall);
-      
-      // Parse arguments to get reschedule details
-      const args = typeof toolCall.arguments === 'string' 
-        ? JSON.parse(toolCall.arguments) 
-        : toolCall.arguments;
-      
-      const attendeeName = args.userEmail?.split('@')[0] || 'you';
-      const newStartTime = new Date(args.newStartTime);
-      const timeString = newStartTime.toLocaleString('en-US', {
-        timeZone: args.timezone || 'America/Los_Angeles',
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        timeZoneName: 'short'
-      });
-      
-      // Send echo message for reschedule
-      const echoMessage = `I successfully rescheduled your meeting with ${attendeeName} to ${timeString}.`;
-      console.log('🔊 [ECHO] Sending reschedule echo message:', echoMessage);
-      
-      tavusToolCalls.interruptReplica(conversationId);
-      tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
-      
-      tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
-        ok: true,
-        message: 'Reschedule request received'
-      });
+      } else if (toolCall.name === 'reschedule_meeting') {
+        // Handle reschedule - this will be processed by the events API
+        const args = typeof toolCall.arguments === 'string' 
+          ? JSON.parse(toolCall.arguments) 
+          : toolCall.arguments;
+        
+        const attendeeName = args.userEmail?.split('@')[0] || 'you';
+        const newStartTime = new Date(args.newStartTime);
+        const timeString = newStartTime.toLocaleString('en-US', {
+          timeZone: args.timezone || 'America/Los_Angeles',
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        });
+        
+        // Send echo message for reschedule
+        const echoMessage = `I successfully rescheduled your meeting with ${attendeeName} to ${timeString}.`;
+        
+        tavusToolCalls.interruptReplica(conversationId);
+        tavusToolCalls.sendEcho(conversationId, echoMessage, 'text');
+        
+        tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+          ok: true,
+          message: 'Reschedule request received'
+        });
 
-      // Delay transition to allow echo message to be heard
-      setTimeout(async () => {
-        setStep('confirm');
-        // Clean up conversation and call
+        // Delay transition to allow echo message to be heard
+        setTimeout(async () => {
+          // Clean up conversation and call FIRST, wait for completion
+          await cleanupCall(conversationId);
+          // Only transition to confirm page after cleanup is complete
+          setStep('confirm');
+        }, 6000); // 6 second delay to allow echo message to be spoken
+      } else if (toolCall.name === 'end_call') {
+        // Handle call ending
+        setStep('landing');
         await cleanupCall(conversationId);
-      }, 6000); // 6 second delay to allow echo message to be spoken
-    } else if (toolCall.name === 'end_call') {
-      // Handle call ending
-      setStep('landing');
-      await cleanupCall(conversationId);
-      tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
-        ok: true
-      });
-    }
+        tavusToolCalls.sendToolResult(conversationId, toolCall.tool_call_id, {
+          ok: true
+        });
+      }
   }, [email, timezone]);
 
   // Initialize Tavus tool calls hook
   const tavusToolCalls = useTavusToolCalls(handleTavusToolCall);
+  const { leaveCall } = useCVICall();
+
+  // Function to end Tavus conversation via API
+  const endTavusConversation = useCallback(async (conversationId: string) => {
+    try {
+      console.log('🔚 [END_CONVERSATION] Ending Tavus conversation:', conversationId);
+      
+      const response = await fetch(`https://tavusapi.com/v2/conversations/${conversationId}/end`, {
+        method: 'POST',
+        headers: {
+          'x-api-key': process.env.TAVUS_API_KEY || '',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to end conversation: ${response.statusText}`);
+      }
+
+      console.log('✅ [END_CONVERSATION] Successfully ended Tavus conversation');
+      return true;
+    } catch (error) {
+      console.error('❌ [END_CONVERSATION] Error ending conversation:', error);
+      return false;
+    }
+  }, []);
 
   // Cleanup function for leaving calls
   const cleanupCall = useCallback(async (conversationId?: string) => {
-    console.log('🧹 [CLEANUP] Cleaning up call and conversation', { conversationId, currentConversationUrl: conversationUrl });
+    console.log('🧹 [CLEANUP] Starting cleanup with conversationId:', conversationId, 'currentUrl:', conversationUrl);
+    
+    // Leave the Daily.co call first
+    leaveCall();
     
     // End Tavus conversation if we have a conversation ID
-    if (conversationId) {
-      await tavusToolCalls.endConversation(conversationId);
-    }
+    // TODO: Check if the conversation is still active, if active, end it
+    // if (conversationId) {
+    //   await tavusToolCalls.endConversation(conversationId);
+    // }
     
-    // Clear conversation state
-    console.log('🧹 [CLEANUP] Clearing conversation state');
+    // Clear all conversation and state variables
     setConversationUrl(null);
     setConversationPreparing(false);
+    setPreventConversationCreation(false);
+    setBookingInfo(null);
+    setErrors(null);
+    setToolError(null);
+    setMicLevel(0);
+    setAvReady(false);
+    setMediaStream(null);
+    inFlightToolCalls.current.clear();
     
-    console.log('🧹 [CLEANUP] Cleanup complete');
-  }, [tavusToolCalls, conversationUrl]);
+    // Stop any existing media tracks
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      setMediaStream(null);
+    }
+    
+    console.log('🧹 [CLEANUP] Complete cleanup finished - all state variables cleared');
+  }, [leaveCall, tavusToolCalls, conversationUrl, mediaStream]);
+
 
   useEffect(() => {
     const last = localStorage.getItem('booking_last_email');
@@ -371,50 +432,54 @@ export default function Page() {
   }
 
   async function goToCall() {
-    console.log('🔍 [GO_TO_CALL] State check:', { 
-      avReady, 
-      conversationPreparing, 
-      conversationUrl, 
-      step 
-    });
+    console.log('🎯 [JOIN_CALL] User clicked Join Call button');
     
     if (!avReady) {
       setErrors('Please allow camera & mic to continue.');
       return;
     }
+    
     if (conversationPreparing) {
       setErrors('Please wait for conversation to prepare...');
       return;
     }
+    
+    
+    // Reset prevention flag when user explicitly clicks Join Call
+    setPreventConversationCreation(false);
+    
     if (!conversationUrl) {
-      console.log('🔍 [GO_TO_CALL] No conversation URL, triggering preparation...');
-      // Try to prepare conversation if not already preparing
-      if (!conversationPreparing) {
+      setConversationPreparing(true);
+      setErrors('Preparing conversation...');
+      
+      try {
         await prepareConversation();
-        // Wait a moment for the conversation to be prepared
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        // Check again after preparation
+        // Wait for the conversation to be prepared
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         if (!conversationUrl) {
-          setErrors('Conversation not ready yet. Please wait a moment and try again.');
+          setErrors('Failed to create conversation. Please try again.');
+          setConversationPreparing(false);
           return;
         }
-      } else {
-        setErrors('Conversation not ready yet. Please wait a moment and try again.');
+      } catch (error) {
+        setErrors('Failed to create conversation. Please try again.');
+        setConversationPreparing(false);
         return;
       }
     }
     
     // Validate conversation URL format
     if (!conversationUrl.startsWith('https://tavus.daily.co/')) {
-      console.error('🔍 [GO_TO_CALL] Invalid conversation URL format:', conversationUrl);
       setErrors('Invalid conversation URL. Please try again.');
       return;
     }
     
-    // Use pre-prepared URL
-    console.log('🔍 [GO_TO_CALL] Proceeding to call with conversation:', conversationUrl);
+    // Clear any errors and proceed to call
+    setErrors(null);
+    console.log('🎯 [JOIN_CALL] Starting conversation:', conversationUrl);
     setStep('call');
-    pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Using pre-prepared conversation', data: { conversationUrl } });
+    pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Starting new conversation', data: { conversationUrl } });
   }
 
   // -------- Availability (fetch on "haircheck" step, before conversation preparation) --------
@@ -445,45 +510,38 @@ export default function Page() {
 
   // -------- Conversation preparation --------
   const prepareConversation = useCallback(async () => {
-    console.log('🔍 [PREPARE_CONVERSATION] Starting preparation:', { 
-      conversationPreparing, 
-      conversationUrl, 
-      email, 
-      timezone, 
-      slotsLength: slots.length 
-    });
+    console.log('🔍 [PREPARE_CONVERSATION] Called with preventCreation:', preventConversationCreation, 'conversationUrl:', conversationUrl);
     
-    if (conversationPreparing || conversationUrl) {
-      console.log('🔍 [PREPARE_CONVERSATION] Skipping - already preparing or has URL');
+    if (preventConversationCreation) {
+      console.log('🔍 [PREPARE_CONVERSATION] BLOCKED by preventConversationCreation flag');
       return;
     }
     
+    if (conversationPreparing || conversationUrl) {
+      console.log('🔍 [PREPARE_CONVERSATION] BLOCKED - already preparing or has URL');
+      return;
+    }
+    
+    console.log('🔍 [PREPARE_CONVERSATION] Creating new conversation...');
     setConversationPreparing(true);
     try {
-      console.log('🔍 [PREPARE_CONVERSATION] Calling /api/tavus/start...');
       const res = await fetch('/api/tavus/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, timezone, slots }),
       });
       const payload = await res.json();
-      console.log('🔍 [PREPARE_CONVERSATION] API response:', payload);
       const { conversationUrl: newConversationUrl } = payload;
       if (newConversationUrl) {
         setConversationUrl(newConversationUrl);
-        console.log('🔍 [PREPARE_CONVERSATION] Conversation URL set:', newConversationUrl);
         pushLog({ ts: Date.now(), origin: 'local', kind: 'info', note: 'Conversation prepared in background', data: { conversationUrl: newConversationUrl } });
-      } else {
-        console.log('🔍 [PREPARE_CONVERSATION] No conversation URL in response');
       }
     } catch (e) {
-      console.error('🔍 [PREPARE_CONVERSATION] Error:', e);
       pushLog({ ts: Date.now(), origin: 'local', kind: 'error', note: 'Failed to prepare conversation', data: String(e) });
     } finally {
       setConversationPreparing(false);
-      console.log('🔍 [PREPARE_CONVERSATION] Preparation complete');
     }
-  }, [conversationPreparing, conversationUrl, email, timezone, slots, pushLog]);
+  }, [conversationPreparing, conversationUrl, email, timezone, slots, pushLog, preventConversationCreation]);
 
   // Auto-initialize camera when on haircheck step
   useEffect(() => {
@@ -492,24 +550,18 @@ export default function Page() {
     }
   }, [step, mediaStream, requestAV]);
 
-  // Prepare conversation when camera is ready AND availability is loaded
+  // DISABLED: Prepare conversation when camera is ready AND availability is loaded
+  // Now conversations are only created when "Join Call" is clicked
   useEffect(() => {
-    console.log('🔍 [CONVERSATION_TRIGGER] Checking conditions:', {
-      avReady,
-      conversationUrl,
-      conversationPreparing,
-      loadingSlots,
-      slotsLength: slots.length,
-      step
-    });
+    console.log('🔍 [SAFETY_CHECK] Step:', step, 'conversationUrl:', conversationUrl, 'preventCreation:', preventConversationCreation);
     
-    if (avReady && !conversationUrl && !conversationPreparing && !loadingSlots && slots.length >= 0) {
-      console.log('🔍 [CONVERSATION_TRIGGER] All conditions met, triggering preparation');
-      prepareConversation();
-    } else {
-      console.log('🔍 [CONVERSATION_TRIGGER] Conditions not met, skipping');
+    // Additional safety: Clear any existing conversation when on landing page
+    if (step === 'landing' && conversationUrl) {
+      console.log('🔍 [SAFETY_CHECK] Clearing conversation on landing page');
+      setConversationUrl(null);
+      setConversationPreparing(false);
     }
-  }, [avReady, conversationUrl, conversationPreparing, loadingSlots, slots, prepareConversation]);
+  }, [step, conversationUrl, preventConversationCreation]);
 
   // -------- Slot selection handler --------
   function handleSlotSelect(slot: { start_time: string }) {
@@ -1153,11 +1205,13 @@ export default function Page() {
                     paddingRight: '3px'
                   } as React.CSSProperties}
                 >
-                  <Conversation conversationUrl={conversationUrl} onLeave={async () => {
-                    console.log('🚪 [CONVERSATION_LEAVE] Conversation component calling onLeave');
-                    await cleanupCall();
-                    setStep('landing');
-                  }} />
+                  <Conversation 
+                    conversationUrl={conversationUrl} 
+                    onLeave={async () => {
+                      await cleanupCall();
+                      setStep('landing');
+                    }} 
+                  />
                 </div>
               ) : (
                 <div 
@@ -1299,12 +1353,24 @@ export default function Page() {
                     className="button"
                     onClick={async (e) => {
                       e.preventDefault();
-                      console.log('🔄 [BOOK_ANOTHER] Button clicked, starting cleanup');
-                      setStep('landing');
-                      // Clean up any existing conversation and call
+                      console.log('🔄 [BOOK_ANOTHER] Starting complete reset');
+                      
+                      // Clean up any existing conversation and call FIRST
                       await cleanupCall();
-                      setBookingInfo(null);
-                      console.log('🔄 [BOOK_ANOTHER] Cleanup complete, state reset');
+                      
+                      // Additional state reset for fresh start
+                      setStep('landing');
+                      setEmail('');
+                      setTimezone('America/Los_Angeles');
+                      setSelectedSlot(null);
+                      setSlots([]);
+                      setLoadingSlots(false);
+                      setBooking(false);
+                      setDebugOpen(false);
+                      setLogs([]);
+                      setFilterToolCalls(true);
+                      
+                      console.log('🔄 [BOOK_ANOTHER] Complete reset finished - ready for new conversation');
                     }}
                   >
                     <div className="btn_text">Book another</div>

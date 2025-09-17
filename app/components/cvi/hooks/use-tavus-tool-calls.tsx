@@ -118,14 +118,11 @@ export const useTavusToolCalls = (
     console.log('🔚 [END] Ending conversation:', conversationId);
     
     try {
-      const response = await fetch(`/api/tavus/end-conversation`, {
+      const response = await fetch(`https://tavusapi.com/v2/conversations/${conversationId}/end`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'x-api-key': process.env.TAVUS_API_KEY || '',
         },
-        body: JSON.stringify({
-          conversation_id: conversationId
-        })
       });
 
       if (!response.ok) {

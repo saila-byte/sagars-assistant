@@ -200,6 +200,31 @@ export async function POST(req: Request) {
             // Send echo message back to Tavus
             // Note: This would need to be implemented with proper Tavus echo API call
             // For now, we'll just log it
+            
+            // End Tavus conversation after successful reschedule
+            try {
+              const conversationId = body.conversation_id;
+              console.log('🔚 [RESCHEDULE] Ending Tavus conversation after successful reschedule:', conversationId);
+              
+              if (conversationId) {
+                const endResponse = await fetch(`https://tavusapi.com/v2/conversations/${conversationId}/end`, {
+                  method: 'POST',
+                  headers: {
+                    'x-api-key': process.env.TAVUS_API_KEY || '',
+                  },
+                });
+
+                if (!endResponse.ok) {
+                  throw new Error(`Failed to end conversation: ${endResponse.statusText}`);
+                }
+
+                console.log('✅ [RESCHEDULE] Successfully ended Tavus conversation after reschedule');
+              } else {
+                console.log('⚠️ [RESCHEDULE] No conversation_id found in body, skipping end conversation call');
+              }
+            } catch (error) {
+              console.error('❌ [RESCHEDULE] Error ending conversation after reschedule:', error);
+            }
           }
           
           return NextResponse.json({ 
