@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
-import { getValidTokens } from '@/lib/googleTokens';
+import { getCalendarClient } from '@/lib/google';
 
 export const runtime = 'nodejs';
 
@@ -18,33 +17,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'email and start_time are required' }, { status: 400 });
     }
 
-    console.log('[book] Checking Google OAuth tokens...');
-    const tokens = await getValidTokens();
-    if (!tokens) {
-      console.error('[book] No valid Google OAuth tokens found');
-      return NextResponse.json(
-        { error: 'Google not connected. Visit /api/google/oauth/start first.' },
-        { status: 401 }
-      );
-    }
-    console.log('[book] Valid Google OAuth tokens found');
+    console.log('[book] Getting Google Calendar client...');
+    const calendar = await getCalendarClient();
+    console.log('[book] Google Calendar client obtained (auto-refresh enabled)');
 
-    const clientId = process.env.GOOGLE_CLIENT_ID!;
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET!;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI!;
     const calendarId = process.env.HASSAAN_CALENDAR_ID || 'primary';
-
-    console.log('[book] Environment variables:', { 
-      hasClientId: !!clientId, 
-      hasClientSecret: !!clientSecret, 
-      hasRedirectUri: !!redirectUri, 
-      calendarId 
-    });
-
-    const oauth2 = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
-    oauth2.setCredentials(tokens);
-
-    const calendar = google.calendar({ version: 'v3', auth: oauth2 });
     const start = new Date(start_time);
     const end = addMinutes(start, Number(duration));
 

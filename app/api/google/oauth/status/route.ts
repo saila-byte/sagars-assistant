@@ -1,37 +1,39 @@
 import { NextResponse } from 'next/server';
-import { getValidTokens } from '@/lib/googleTokens';
+import { getCalendarClient } from '@/lib/google';
 
 export const runtime = 'nodejs';
 
 export async function GET() {
   try {
-    const tokens = await getValidTokens();
+    // Try to create a calendar client - this will test if we have a valid refresh token
+    const calendar = await getCalendarClient();
     
-    if (!tokens) {
-      return NextResponse.json({
-        connected: false,
-        message: 'Google OAuth not connected',
-        action: 'Visit /api/google/oauth/start to authenticate'
-      });
-    }
-
-    // Check if token is expired
-    const now = Date.now();
-    const isExpired = tokens.expiry_date && tokens.expiry_date < now;
+    // Test the connection by making a simple API call
+    await calendar.calendarList.list({ maxResults: 1 });
     
     return NextResponse.json({
       connected: true,
-      expired: isExpired,
-      tokenType: tokens.token_type,
-      scope: tokens.scope,
-      expiresAt: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
-      message: isExpired ? 'Token expired - re-authentication needed' : 'Google OAuth connected and active with auto-refresh'
+      message: 'Google OAuth connected with auto-refresh enabled',
+      note: 'Access tokens are automatically refreshed by the Google SDK'
     });
   } catch (error: unknown) {
+    const errorMessage = (error as Error)?.message || 'Unknown error';
+    
+    // Check if it's a refresh token issue
+    if (errorMessage.includes('invalid_grant') || errorMessage.includes('refresh_token')) {
+      return NextResponse.json({
+        connected: false,
+        message: 'Refresh token invalid or expired',
+        action: 'Visit /api/google/oauth/start to re-authenticate',
+        error: errorMessage
+      });
+    }
+    
     return NextResponse.json({
       connected: false,
-      error: (error as Error)?.message || 'Unknown error',
-      message: 'Error checking OAuth status'
-    }, { status: 500 });
+      message: 'Google OAuth not connected',
+      action: 'Visit /api/google/oauth/start to authenticate',
+      error: errorMessage
+    });
   }
 }
